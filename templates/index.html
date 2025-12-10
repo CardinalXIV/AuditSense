@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AuditSense – Local Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.12);
+      --border: #1e293b;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --radius-xl: 18px;
+      --radius-lg: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 45%, #000 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 12px;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 880px;
+    }
+
+    .card {
+      background: linear-gradient(145deg, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
+      border-radius: 24px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow:
+        0 24px 60px rgba(15, 23, 42, 0.8),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+      padding: 22px 22px 20px;
+      backdrop-filter: blur(24px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .title-block h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .title-pill {
+      font-size: 0.8rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      color: var(--text-muted);
+    }
+
+    .subtitle {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      max-width: 540px;
+    }
+
+    .meta-tag {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #e0f2fe;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .meta-tag-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    @media (max-width: 840px) {
+      .card {
+        padding: 18px 16px 16px;
+      }
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    form {
+      margin: 0;
+    }
+
+    .drop-zone {
+      border-radius: var(--radius-xl);
+      border: 1px dashed rgba(148, 163, 184, 0.6);
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.12), rgba(15,23,42,0.9));
+      padding: 20px 16px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.12s ease,
+        background 0.18s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .drop-zone::after {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at top, rgba(56,189,248,0.15), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(79,70,229,0.18), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      pointer-events: none;
+    }
+
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.7), 0 18px 40px rgba(15,23,42,0.9);
+      transform: translateY(-1px);
+    }
+
+    .drop-zone.dragover::after {
+      opacity: 1;
+    }
+
+    .drop-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+      box-shadow: 0 8px 24px rgba(15,23,42,0.9);
+      background: radial-gradient(circle at top, #020617, #111827);
+      font-size: 1.4rem;
+    }
+
+    .drop-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .drop-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      font-size: 0.72rem;
+      margin-bottom: 12px;
+    }
+
+    .pill {
+      border-radius: 999px;
+      padding: 3px 9px;
+      border: 1px solid rgba(148,163,184,0.55);
+      color: var(--text-muted);
+      background: rgba(15,23,42,0.8);
+    }
+
+    .pill.primary {
+      border-color: rgba(56,189,248,0.75);
+      color: #e0f2fe;
+      background: rgba(15,23,42,0.95);
+    }
+
+    .btn-row {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .primary-btn {
+      border-radius: 999px;
+      border: none;
+      padding: 8px 18px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      color: #0b1120;
+      background: linear-gradient(135deg, #38bdf8, #4f46e5);
+      box-shadow:
+        0 12px 30px rgba(37,99,235,0.6),
+        0 0 0 1px rgba(15,23,42,0.9);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition:
+        transform 0.08s ease,
+        box-shadow 0.12s ease,
+        filter 0.1s ease;
+    }
+
+    .primary-btn span.kb {
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+
+    .primary-btn:hover {
+      transform: translateY(-0.5px);
+      filter: brightness(1.03);
+      box-shadow:
+        0 14px 36px rgba(37,99,235,0.8),
+        0 0 0 1px rgba(15,23,42,0.95);
+    }
+
+    .primary-btn:active {
+      transform: translateY(0);
+      box-shadow:
+        0 8px 20px rgba(37,99,235,0.7),
+        0 0 0 1px rgba(15,23,42,0.95);
+    }
+
+    .helper {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .helper strong {
+      color: #e5e7eb;
+    }
+
+    .file-list-card {
+      border-radius: var(--radius-xl);
+      background: radial-gradient(circle at top, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+      border: 1px solid rgba(31,41,55,0.9);
+      padding: 14px 14px 10px;
+    }
+
+    .file-list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .file-count-pill {
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.6);
+      font-size: 0.75rem;
+    }
+
+    .file-list {
+      list-style: none;
+      max-height: 180px;
+      overflow: auto;
+      padding-right: 6px;
+      margin-top: 4px;
+    }
+
+    .file-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 5px 6px;
+      margin-bottom: 3px;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(30, 64, 175, 0.6);
+      font-size: 0.78rem;
+    }
+
+    .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #e5e7eb;
+    }
+
+    .file-meta {
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 10px 4px 6px;
+    }
+
+    .flash {
+      margin-top: 10px;
+      border-radius: var(--radius-lg);
+      padding: 7px 10px;
+      font-size: 0.78rem;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.7);
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <div class="card-header">
+        <div class="title-block">
+          <h1>
+            AuditSense
+            <span class="title-pill">Local deterministic demo</span>
+          </h1>
+          <p class="subtitle">
+            Upload one or more procurement documents. We’ll parse, chunk and extract audit-relevant dates
+            – everything stays on your machine.
+          </p>
+        </div>
+        <div class="meta-tag">
+          <span class="meta-tag-dot"></span>
+          <span>Layered pipeline · No embeddings</span>
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          {% for m in messages %}
+            <div class="flash">{{ m }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" enctype="multipart/form-data">
+        <!-- real file input, hidden -->
+        <input id="file-input" type="file" name="files" multiple style="display:none" />
+
+        <div class="main">
+          <!-- LEFT: drop zone -->
+          <div class="drop-zone" id="drop-zone">
+            <div class="drop-icon">📂</div>
+
+            <div class="drop-title">Drop your files here</div>
+            <div class="drop-subtitle">or click to browse from your computer</div>
+
+            <div class="pill-row">
+              <span class="pill primary">PDF, DOCX, XLSX, CSV, MD</span>
+              <span class="pill">No external calls</span>
+              <span class="pill">Parsed → chunked → dated</span>
+            </div>
+
+            <div class="btn-row">
+              <!-- this ONLY submits; it does NOT open the picker -->
+              <button type="submit" class="primary-btn">
+                Run local analysis
+                <span class="kb">⌘↵</span>
+              </button>
+              <p class="helper">
+                You can add multiple files before running. <strong>Nothing leaves this laptop.</strong>
+              </p>
+            </div>
+          </div>
+
+          <!-- RIGHT: file list -->
+          <div class="file-list-card">
+            <div class="file-list-header">
+              <span>Selected files</span>
+              <span class="file-count-pill" id="file-count-pill">0 files</span>
+            </div>
+            <ul class="file-list" id="file-list">
+              <li class="empty-state">No files selected yet. Drag and drop or click the box on the left.</li>
+            </ul>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const fileList = document.getElementById('file-list');
+    const fileCountPill = document.getElementById('file-count-pill');
+
+    function bytesToSize(bytes) {
+      if (!bytes && bytes !== 0) return '';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let i = 0;
+      let value = bytes;
+      while (value >= 1024 && i < units.length - 1) {
+        value = value / 1024;
+        i += 1;
+      }
+      return value.toFixed(value < 10 && i > 0 ? 1 : 0) + ' ' + units[i];
+    }
+
+    function refreshFileList(files) {
+      if (!files || files.length === 0) {
+        fileList.innerHTML =
+          '<li class="empty-state">No files selected yet. Drag and drop or click the box on the left.</li>';
+        fileCountPill.textContent = '0 files';
+        return;
+      }
+
+      fileCountPill.textContent =
+        files.length === 1 ? '1 file' : files.length + ' files';
+
+      const items = Array.from(files).map(f => {
+        const size = bytesToSize(f.size);
+        return (
+          '<li class="file-list-item">' +
+            '<span class="file-name" title="' + f.name.replace(/"/g, '&quot;') + '">' +
+              f.name +
+            '</span>' +
+            '<span class="file-meta">' +
+              (size ? size : '') +
+            '</span>' +
+          '</li>'
+        );
+      });
+
+      fileList.innerHTML = items.join('');
+    }
+
+    // Click inside the drop zone (but NOT on the submit button) → open file picker
+    dropZone.addEventListener('click', (e) => {
+      const target = e.target;
+      if (target.closest('.primary-btn')) {
+        // let the form submit normally
+        return;
+      }
+      e.preventDefault();
+      fileInput.click();
+    });
+
+    // When the user chooses files from the dialog
+    fileInput.addEventListener('change', (e) => {
+      refreshFileList(e.target.files);
+    });
+
+    // Drag & drop behaviour
+    ['dragenter', 'dragover'].forEach(evtName => {
+      dropZone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evtName => {
+      dropZone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover');
+      });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (!dt || !dt.files || dt.files.length === 0) return;
+
+      // Put dropped files into the hidden input so Flask receives them
+      const dataTransfer = new DataTransfer();
+      Array.from(dt.files).forEach(f => dataTransfer.items.add(f));
+      fileInput.files = dataTransfer.files;
+
+      refreshFileList(fileInput.files);
+    });
+  })();
+</script>
+</body>
+</html>

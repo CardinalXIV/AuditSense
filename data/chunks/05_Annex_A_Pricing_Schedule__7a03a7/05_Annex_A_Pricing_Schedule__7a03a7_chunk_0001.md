@@ -1,0 +1,10 @@
+**ANNEX A -  PRICING AND QUANTITIES Contract Reference:**  MOF/ITQ/2025/015 **Contract Title:**  Supply and Delivery of Ergonomic Office Chairs and Adjustable Desks **Contractor:**  TechLine Office Solutions Pte Ltd
+## **1. Items and Pricing**
+
+|  Item No.  |  Description  |  Quantity  |  Unit Price (S$)  |  Extended Price  (S$)  |
+|---:|:---|---:|:---|:---|
+|  1  | Ergonomic Office Chair  (mesh back)  |  120  | 500.00  | 60,000.00  |
+|  2  | Height-Adjustable Desk  (electric, 120cm) |  80  | 1,750.00  | 140,000.00  |
+**Subtotal (before GST):**  S$200,000.00 **GST (9%):**  S$18,000.00 **Total Contract Sum: S$218,000.00**
+## **2. Notes**
+2.1 All prices are in Singapore Dollars and are inclusive of delivery, assembly and installation. 2.2 The Contract Sum stated in the main Contract shall prevail in the event of any discrepancy.

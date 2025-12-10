@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AuditSense – Results</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #1e293b 0, #020617 45%, #000 100%);
+      color: #e5e7eb;
+      padding: 24px 12px 32px;
+      display: flex;
+      justify-content: center;
+    }
+    .shell {
+      width: 100%;
+      max-width: 1600px;      /* wider container */
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
+      border-radius: 28px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow:
+        0 28px 80px rgba(15, 23, 42, 0.7),
+        0 0 0 1px rgba(15,23,42,0.9);
+      padding: 32px 32px 28px;
+      backdrop-filter: blur(28px);
+    }
+    a.back-link {
+      font-size: 0.82rem;
+      color: #a5b4fc;
+      text-decoration: none;
+    }
+    a.back-link:hover {
+      text-decoration: underline;
+    }
+    h1 {
+      margin: 4px 0 4px;
+      font-size: 1.45rem;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-bottom: 16px;
+    }
+    .chips {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-bottom: 16px;
+    }
+    .chips span {
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+      margin-right: 6px;
+    }
+    .chips span.primary {
+      border-color: rgba(56,189,248,0.7);
+      color: #e0f2fe;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 880px) {
+      .grid {
+        display: grid;
+        grid-template-columns: 2fr 1.2fr; /* wider left panel */
+        gap: 24px;                        /* more spacing between columns */
+      }
+    }
+    .panel {
+      border-radius: 18px;
+      border: 1px solid rgba(31,41,55,0.9);
+      background: rgba(15,23,42,0.98);
+      padding: 14px 14px 10px;
+    }
+    .panel h2 {
+      font-size: 0.98rem;
+      margin: 0 0 8px;
+    }
+    .panel small {
+      color: #9ca3af;
+      font-size: 0.77rem;
+    }
+    .gantt-wrap {
+      border-radius: 14px;
+      background: #020617;
+      border: 1px solid rgba(30,64,175,0.7);
+      padding: 10px;
+      margin-top: 8px;
+      text-align: center;
+    }
+    .gantt-wrap img {
+      max-width: 100%;
+      border-radius: 10px;
+      display: block;
+      margin: 0 auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      margin-top: 6px;
+    }
+    th, td {
+      padding: 6px 6px;
+      border-bottom: 1px solid rgba(31,41,55,0.9);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      font-weight: 600;
+      color: #9ca3af;
+      background: rgba(15,23,42,0.95);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tbody tr:nth-child(even) {
+      background: rgba(15,23,42,0.96);
+    }
+    .doc-card {
+      border-radius: 14px;
+      border: 1px solid rgba(30,64,175,0.7);
+      background: rgba(15,23,42,0.98);
+      padding: 10px 10px 8px;
+      margin-bottom: 10px;
+      font-size: 0.78rem;
+    }
+    .doc-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .doc-name {
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .doc-meta {
+      font-size: 0.74rem;
+      color: #9ca3af;
+      flex-shrink: 0;
+    }
+    .chunk-preview {
+      font-size: 0.74rem;
+      background: #020617;
+      border-radius: 10px;
+      border: 1px solid rgba(30,64,175,0.7);
+      padding: 7px 8px;
+      margin-top: 4px;
+      max-height: 150px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .chunk-preview + .chunk-preview {
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <a href="{{ url_for('index') }}" class="back-link">← Back to upload</a>
+
+      <h1>Analysis complete</h1>
+      <p class="subtitle">
+        Processed {{ results|length }} document{{ '' if results|length == 1 else 's' }},
+        {{ total_chunks }} total chunks.
+      </p>
+
+      <div class="chips">
+        <span class="primary">Combined timeline</span>
+        <span>ChunkNorris parsing</span>
+        <span>Deterministic TF–IDF-friendly chunks</span>
+      </div>
+
+      <div class="grid">
+        <!-- Left: combined Gantt + dates table -->
+                <div class="panel">
+          <h2>Timeline across all documents</h2>
+          <small>Each bar represents the month range where dates appear in that document.</small>
+
+          {% if combined_gantt_b64 %}
+            <div class="gantt-wrap">
+              <img src="data:image/png;base64,{{ combined_gantt_b64 }}" alt="Combined Gantt chart">
+            </div>
+          {% else %}
+            <p style="margin-top:8px;font-size:0.8rem;color:#9ca3af;">
+              No dates were detected across the uploaded documents.
+            </p>
+          {% endif %}
+
+          {% if dates_table and dates_table|length > 0 %}
+            <div style="margin-top:10px; max-height:260px; overflow:auto; border-radius:10px; border:1px solid rgba(31,41,55,0.9);">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Document</th>
+                    <th>Date</th>
+                    <th>Chunk</th>
+                    <th>Method</th>
+                    <th>Context</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in dates_table %}
+                    <tr>
+                      <td>{{ row['Document'] }}</td>
+                      <td>{{ row['Parsed Date'] }}</td>
+                      <td>#{{ row['Chunk'] }}</td>
+                      <td>{{ row['Method'] }}</td>
+                      <td>{{ row['Context'] }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Right: per-document summary & sample chunks -->
+        <div class="panel">
+          <h2>Documents & sample chunks</h2>
+          <small>Quick sanity-check of what the pipeline saw.</small>
+
+          <div style="margin-top:8px; max-height:430px; overflow:auto;">
+            {% for doc in results %}
+              <div class="doc-card">
+                <div class="doc-header">
+                  <div class="doc-name" title="{{ doc.original_filename }}">
+                    {{ doc.original_filename }}
+                  </div>
+                  <div class="doc-meta">
+                    {{ doc.num_chunks }} chunk{{ '' if doc.num_chunks == 1 else 's' }}
+                  </div>
+                </div>
+
+                {% if doc.sample_chunks %}
+                  {% for chunk in doc.sample_chunks %}
+                    <div class="chunk-preview">
+                      {{ chunk }}
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="chunk-preview">
+                    No preview chunks available.
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

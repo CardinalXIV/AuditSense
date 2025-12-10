@@ -1,0 +1,49 @@
+--- chunk 1 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+**CONTRACT AGREEMENT FOR THE SUPPLY AND DELIVERY OF ERGONOMIC OFFICE CHAIRS AND ADJUSTABLE DESKS** This Agreement is made on this  **15th day of February 2026**  (“Commencement Date”), **BETWEEN** (1)  **THE GOVERNMENT OF THE REPUBLIC OF SINGAPORE**  , represented by the Ministry of Finance (“MOF”), having its office at 100 Parliament Place, Singapore 179000 (hereinafter referred to as the “Government”); and (2)  **TechLine Office Solutions Pte Ltd**  , a company incorporated in Singapore with UEN **202512345K**  and registered address at  **10 Harbour Drive #05-01, Singapore 117610** (hereinafter referred to as the “Contractor”). (IT uses 117610 again →  **address mismatch vs LOA**  )
+
+--- chunk 2 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **1. Definitions**
+1.1 “Contract” means this Agreement, the Letter of Award dated  **5 February 2026**  , the Contractor’s quotation dated  **12 January 2026**  , and all Annexes attached hereto. 1.2 “Goods” means the ergonomic office chairs and height-adjustable desks specified in Annex A.
+
+--- chunk 3 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **2. Contract Sum**
+2.1 In consideration of the performance of the Contractor’s obligations under this Contract, the Government shall pay the Contractor a total contract sum of:
+**S$218,400.00 (Singapore Dollars Two Hundred Eighteen Thousand Four Hundred Only), inclusive of GST.**
+2.2 The detailed price breakdown is set out in  **Annex A -  Pricing and Quantities**  .
+
+--- chunk 4 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **3. Contract Period**
+3.1 The Contract shall commence on  **15 February 2026**  and shall remain in force until  **31 January 2027**  , unless earlier terminated in accordance with Clause 11. 3.2 The Contractor shall complete delivery and installation of all Goods within  **eight (8) weeks** from the Commencement Date.
+
+--- chunk 5 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **4. Scope of Work**
+4.1 The Contractor shall: a. Supply the quantities of Goods described in Annex A; b. Deliver, assemble and install the Goods at locations specified by the Government; c. Provide on-site product briefing; d. Provide warranty and support as stated in Clause 6.
+
+--- chunk 6 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **5. Invoicing and Payment**
+5.1 The Contractor shall submit invoices upon completion of delivery and installation of Goods. 5.2 Payment shall be made within  **30 days**  from the date the Government receives a correct invoice.
+
+--- chunk 7 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **6. Warranty**
+6.1 The Contractor shall provide a  **warranty period of three (3) years**  for all Goods supplied under this Contract. 6.2 During the warranty period, the Contractor shall repair or replace defective Goods at no additional cost.
+
+--- chunk 8 ---
+# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
+
+## **7. Documents Forming the Contract**
+7.1 The following documents shall form, and be read as, part of this Contract: a. This Contract Agreement; b. Letter of Award dated  **5 February 2026**  (Ref: MOF/ITQ/2025/015); c. The Contractor’s quotation dated  **12 January 2026**  (Ref:  **MOF/ITQ/2025/15**  ); d. Annex A -  Pricing and Quantities; e. Annex B -  Technical Specifications. IN WITNESS WHEREOF the parties hereto have executed this Contract Agreement on the date first written above. *Signed digitally* For and on behalf of **THE GOVERNMENT OF THE REPUBLIC OF SINGAPORE** Name: Lim Jia Hui Designation: Assistant Director (Corporate Services) For and on behalf of **TechLine Office Solutions Pte Ltd** Name: Tan Wei Lin Designation: Sales Manager
+
