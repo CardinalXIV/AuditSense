@@ -186,7 +186,7 @@
 
       <div class="grid">
         <!-- Left: combined Gantt + dates table -->
-                <div class="panel">
+        <div class="panel">
           <h2>Timeline across all documents</h2>
           <small>Each bar represents the month range where dates appear in that document.</small>
 
@@ -262,7 +262,337 @@
         </div>
       </div>
 
+      <!-- Graph panel with filters + search -->
+      <div class="panel" style="margin-top:18px;">
+        <h2>Knowledge graph snapshot</h2>
+        <small>Documents, chunks, dates &amp; entities from Neo4j.</small>
+
+        <!-- Search + filters row -->
+        <div style="margin-top:8px; font-size:0.78rem; color:#9ca3af; display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <input
+              id="graph-search"
+              type="text"
+              placeholder="Search by name (entity, date, document)..."
+              style="
+                background:#020617;
+                border-radius:999px;
+                border:1px solid rgba(148,163,184,0.5);
+                padding:4px 10px;
+                font-size:0.78rem;
+                color:#e5e7eb;
+                min-width:220px;
+              "
+            />
+            <button
+              id="graph-search-btn"
+              type="button"
+              style="
+                font-size:0.78rem;
+                border-radius:999px;
+                border:1px solid rgba(148,163,184,0.6);
+                background:rgba(15,23,42,0.9);
+                color:#e5e7eb;
+                padding:4px 10px;
+                cursor:pointer;
+              "
+            >
+              Search
+            </button>
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+            <span style="font-weight:500; color:#e5e7eb;">Filters:</span>
+            <label><input id="filter-docs"   type="checkbox" checked style="margin-right:4px;">Documents</label>
+            <label><input id="filter-chunks" type="checkbox" checked style="margin-right:4px;">Chunks</label>
+            <label><input id="filter-dates"  type="checkbox" checked style="margin-right:4px;">Dates</label>
+            <label><input id="filter-entities" type="checkbox" checked style="margin-right:4px;">Entities</label>
+          </div>
+        </div>
+
+        <div
+          id="graph-container"
+          style="
+            margin-top:10px;
+            height:420px;
+            border-radius:14px;
+            border:1px solid rgba(31,41,55,0.9);
+            background:#020617;
+          "
+        ></div>
+
+        <div id="graph-info" style="margin-top:8px; font-size:0.78rem; color:#9ca3af; min-height:1.5em;">
+          Type a name and hit Enter, or click a date/entity node to see which documents it is linked to.
+        </div>
+      </div>
+
     </div>
   </div>
+
+    <!-- Cytoscape + graph init -->
+  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var container = document.getElementById("graph-container");
+      if (!container) return;
+
+      var infoEl = document.getElementById("graph-info");
+      var searchInput = document.getElementById("graph-search");
+      var searchButton = document.getElementById("graph-search-btn");
+
+      fetch("{{ url_for('graph_data') }}")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var elements = [];
+
+          // nodes
+          (data.nodes || []).forEach(function (n) {
+            elements.push({
+              data: {
+                id: n.id,
+                label: n.label || n.type,
+                type: n.type
+              }
+            });
+          });
+
+          // edges
+          (data.edges || []).forEach(function (e) {
+            elements.push({
+              data: {
+                id: e.source + "-" + e.type + "-" + e.target,
+                source: e.source,
+                target: e.target,
+                type: e.type
+              }
+            });
+          });
+
+          var cy = cytoscape({
+            container: container,
+            elements: elements,
+            layout: { name: "cose", animate: false },
+            style: [
+              {
+                selector: "node",
+                style: {
+                  "background-color": "#6b7280",
+                  "label": "data(label)",
+                  "font-size": "8px",
+                  "text-valign": "center",
+                  "text-halign": "center",
+                  "color": "#e5e7eb",
+                  "width": "20px",
+                  "height": "20px"
+                }
+              },
+              {
+                selector: 'node[type = "Document"]',
+                style: {
+                  "shape": "round-rectangle",
+                  "width": "80px",
+                  "height": "30px",
+                  "background-color": "#38bdf8"
+                }
+              },
+              {
+                selector: 'node[type = "Chunk"]',
+                style: {
+                  "shape": "ellipse",
+                  "background-color": "#a855f7"
+                }
+              },
+              {
+                selector: 'node[type = "Date"]',
+                style: {
+                  "shape": "diamond",
+                  "background-color": "#f97316"
+                }
+              },
+              {
+                selector: 'node[type = "Entity"]',
+                style: {
+                  "shape": "hexagon",
+                  "background-color": "#22c55e"
+                }
+              },
+              {
+                selector: "edge",
+                style: {
+                  "width": 1,
+                  "curve-style": "bezier",
+                  "line-color": "#94a3b8",
+                  "target-arrow-color": "#94a3b8",
+                  "target-arrow-shape": "triangle",
+                  "opacity": 0.8
+                }
+              },
+              {
+                selector: ".selected",
+                style: {
+                  "border-width": 3,
+                  "border-color": "#facc15"
+                }
+              },
+              {
+                selector: ".highlighted",
+                style: {
+                  "background-color": "#22c55e",
+                  "line-color": "#22c55e",
+                  "target-arrow-color": "#22c55e"
+                }
+              }
+            ]
+          });
+
+          // --- type filters ---
+
+          function applyTypeFilters() {
+            var showDocs = document.getElementById("filter-docs").checked;
+            var showChunks = document.getElementById("filter-chunks").checked;
+            var showDates = document.getElementById("filter-dates").checked;
+            var showEntities = document.getElementById("filter-entities").checked;
+
+            function toggleNodes(type, visible) {
+              cy.nodes('[type = "' + type + '"]').style("display", visible ? "element" : "none");
+            }
+
+            toggleNodes("Document", showDocs);
+            toggleNodes("Chunk", showChunks);
+            toggleNodes("Date", showDates);
+            toggleNodes("Entity", showEntities);
+
+            // hide edges connected to hidden nodes
+            cy.edges().forEach(function (e) {
+              var srcVisible = e.source().style("display") !== "none";
+              var tgtVisible = e.target().style("display") !== "none";
+              e.style("display", (srcVisible && tgtVisible) ? "element" : "none");
+            });
+          }
+
+          ["filter-docs", "filter-chunks", "filter-dates", "filter-entities"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) {
+              el.addEventListener("change", applyTypeFilters);
+            }
+          });
+
+          // --- click behaviour: show related documents ---
+
+          function showNodeContext(n) {
+            // clear previous highlighting
+            cy.elements().removeClass("selected");
+            cy.elements().removeClass("highlighted");
+
+            n.addClass("selected");
+
+            var neighborhood = n.closedNeighborhood();
+            var docs = neighborhood.nodes('[type = "Document"]');
+
+            docs.addClass("highlighted");
+            neighborhood.edges().addClass("highlighted");
+
+            if (infoEl) {
+              var docLabels = docs.map(function (d) { return d.data("label"); });
+              var uniqueDocs = Array.from(new Set(docLabels));
+
+              if (n.data("type") === "Date" || n.data("type") === "Entity") {
+                infoEl.textContent =
+                  (n.data("type") === "Date" ? "Date " : "Entity ") +
+                  '"' + n.data("label") + '" is linked to document(s): ' +
+                  (uniqueDocs.length ? uniqueDocs.join(", ") : "none");
+              } else {
+                infoEl.textContent = 'Selected ' + n.data("type") + ': "' + n.data("label") + '"';
+              }
+            }
+          }
+
+          cy.on("tap", "node", function (evt) {
+            showNodeContext(evt.target);
+          });
+
+          // --- search behaviour ---
+
+          function runSearch() {
+            if (!searchInput) return;
+            var q = searchInput.value.trim().toLowerCase();
+
+            // clear highlights if query empty
+            if (!q) {
+              cy.elements().removeClass("selected");
+              cy.elements().removeClass("highlighted");
+              if (infoEl) {
+                infoEl.textContent = "Type a name and hit Enter, or click a date/entity node to see which documents it is linked to.";
+              }
+              return;
+            }
+
+            // search in labels (current nodes only)
+            var matches = cy.nodes().filter(function (n) {
+              var label = n.data("label");
+              return label && label.toLowerCase().includes(q);
+            });
+
+            if (matches.length === 0) {
+              cy.elements().removeClass("selected");
+              cy.elements().removeClass("highlighted");
+              if (infoEl) {
+                infoEl.textContent = "No nodes match \"" + q + "\".";
+              }
+              return;
+            }
+
+            // highlight all matches + their docs, zoom to them
+            cy.elements().removeClass("selected");
+            cy.elements().removeClass("highlighted");
+
+            matches.addClass("selected");
+
+            var docs = cy.collection();
+            matches.forEach(function (m) {
+              var nh = m.closedNeighborhood();
+              docs = docs.union(nh.nodes('[type = "Document"]'));
+              nh.edges().addClass("highlighted");
+            });
+
+            docs.addClass("highlighted");
+
+            // fit view to matches + docs
+            cy.fit(matches.union(docs), 50);
+
+            if (infoEl) {
+              var labels = matches.map(function (m) { return m.data("label"); });
+              var docLabels = docs.map(function (d) { return d.data("label"); });
+              var uniqueDocs = Array.from(new Set(docLabels));
+
+              infoEl.textContent =
+                "Found " + matches.length + " node(s) matching \"" + q +
+                "\". Linked document(s): " +
+                (uniqueDocs.length ? uniqueDocs.join(", ") : "none");
+            }
+          }
+
+          if (searchButton) {
+            searchButton.addEventListener("click", runSearch);
+          }
+          if (searchInput) {
+            searchInput.addEventListener("keydown", function (evt) {
+              if (evt.key === "Enter") {
+                runSearch();
+              }
+            });
+          }
+
+          // initial filter pass
+          applyTypeFilters();
+        })
+        .catch(function (err) {
+          console.error("Failed to load graph data", err);
+          if (infoEl) {
+            infoEl.textContent = "Could not load graph data.";
+          }
+        });
+    });
+  </script>
 </body>
 </html>

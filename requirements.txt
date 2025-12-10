@@ -6,4 +6,4 @@ pypdf
 openpyxl
 pandas
 scikit-learn
-networkx
+neo4j

@@ -13,15 +13,17 @@ from chunknorris.parsers import (
     CSVParser,
     ExcelParser,
 )
+    # avoid OCR / Tesseract dependency for now
 from chunknorris.chunkers import MarkdownChunker
 from chunknorris.pipelines import BasePipeline
 
 from utils.date_extract import DateExtractor
+from utils.ner import extract_entities
 
 
 class FileProcessor:
     """
-    Thin facade around ChunkNorris + DateExtractor.
+    Thin facade around ChunkNorris + DateExtractor (+ NER).
 
     ingest_file() returns:
         (success: bool, payload: dict)
@@ -34,6 +36,7 @@ class FileProcessor:
             "num_chunks": int,
             "sample_chunks": List[str],
             "dates": List[dict],
+            "entities": List[dict],
             "gantt_img_b64": Optional[str]
         }
     """
@@ -51,7 +54,7 @@ class FileProcessor:
     # ------------------------------------------------------------------
     def ingest_file(self, raw_path: Path) -> Tuple[bool, Dict]:
         """
-        Ingest + chunk + extract dates for a single file.
+        Ingest + chunk + extract dates/entities for a single file.
 
         Returns:
             (True, payload_dict) on success
@@ -79,8 +82,9 @@ class FileProcessor:
 
         combined_md_parts: List[str] = []
         sample_chunks: List[str] = []
+        entities_rows: List[Dict] = []  # per-chunk entities
 
-        # Save per-chunk markdown + collect text
+        # Save per-chunk markdown + collect text + run NER
         for idx, ch in enumerate(chunks, start=1):
             text = getattr(ch, "get_text", lambda: str(ch))()
             combined_md_parts.append(text)
@@ -89,6 +93,19 @@ class FileProcessor:
             chunk_id = f"{doc_stem}_chunk_{idx:04d}"
             chunk_path = doc_chunk_dir / f"{chunk_id}.md"
             chunk_path.write_text(text, encoding="utf-8")
+
+            # NER on full chunk text (PERSON/ORG)
+            ents = extract_entities(text)
+            for ent in ents:
+                entities_rows.append(
+                    {
+                        "Document": raw_path.name,
+                        "Chunk": idx,  # 1-based index
+                        "Entity": ent["text"],
+                        "Label": ent["label"],  # PERSON / ORG
+                        "Context": text[:400],
+                    }
+                )
 
             # Keep first 3 as preview
             if idx <= 3:
@@ -106,7 +123,7 @@ class FileProcessor:
         # Also write per-doc full.txt + chunks.json for easier inspection
         self._write_doc_artifacts(doc_chunk_dir, raw_path, chunks)
 
-        # --- Date extraction + Gantt chart ---
+        # --- Date extraction + Gantt chart (document-level) ---
         dates_rows, gantt_b64 = self._extract_dates_and_gantt(
             raw_path.name,
             combined_markdown,
@@ -119,6 +136,7 @@ class FileProcessor:
             "num_chunks": len(chunks),
             "sample_chunks": sample_chunks,
             "dates": dates_rows,
+            "entities": entities_rows,
             "gantt_img_b64": gantt_b64,
         }
         return True, payload
@@ -199,13 +217,15 @@ class FileProcessor:
     ) -> Tuple[List[Dict], str | None]:
         """
         Run DateExtractor on the full document text and return:
-        - dates_rows: list of dicts for the table
+        - dates_rows: list of dicts for the dates table
         - gantt_b64: base64 PNG string or None
         """
         # Step 1: extract raw date info from full text
         raw_dates = self.date_extractor.extract_dates_from_text(full_text)
 
-        # Adapt to schema expected by create_dates_dataframe
+        if not raw_dates:
+            return [], None
+
         dates_list = []
         for idx, d in enumerate(raw_dates, start=1):
             dates_list.append(

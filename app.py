@@ -2,12 +2,13 @@
 from pathlib import Path
 import base64
 
-from flask import Flask, request, redirect, url_for, render_template, flash
+from flask import Flask, request, redirect, url_for, render_template, flash, jsonify
 
 from utils.config import RAW_DIR, MD_DIR, CHUNK_DIR
 from utils.file_processor import FileProcessor
 from utils.naming import make_base_id
 from utils.date_extract import DateExtractor
+from utils.graph_client import build_graph_from_results, fetch_graph_snapshot
 
 app = Flask(__name__)
 app.secret_key = "dev-secret-change-me"
@@ -74,18 +75,20 @@ def index():
                 "sample_chunks": payload["sample_chunks"],
                 # per-document dates (list of dicts)
                 "dates": payload.get("dates", []),
+                # per-document entities (list of dicts)
+                "entities": payload.get("entities", []),
             }
         )
 
         total_chunks += payload["num_chunks"]
 
-        if not results:
-            return redirect(url_for("index"))
+    # If everything failed, go back to upload page
+    if not results:
+        return redirect(url_for("index"))
 
     # ---------- build combined dates + Gantt ----------
 
     all_dates = []
-
     for doc in results:
         for row in doc.get("dates") or []:
             all_dates.append(
@@ -96,8 +99,23 @@ def index():
                     "date_text": row.get("Date Found") or "",
                     "formatted_date": row.get("Parsed Date") or "",
                     "context": row.get("Context") or "",
-                    # 👇 preserve the original detection method
+                    # preserve the original detection method
                     "method": row.get("Method") or "unknown",
+                }
+            )
+
+    # ---------- collect entities across all docs ----------
+
+    all_entities = []
+    for doc in results:
+        for row in doc.get("entities") or []:
+            all_entities.append(
+                {
+                    "Document": row.get("Document") or doc["original_filename"],
+                    "Chunk": row.get("Chunk") or 0,
+                    "Entity": row.get("Entity") or "",
+                    "Label": row.get("Label") or "",
+                    "Context": row.get("Context") or "",
                 }
             )
 
@@ -113,6 +131,10 @@ def index():
             if buf is not None:
                 combined_gantt_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
+    # write the current run into Neo4j (docs + chunks + dates + entities)
+    if dates_table or all_entities:
+        build_graph_from_results(results, dates_table, all_entities)
+
     return render_template(
         "result.html",
         results=results,
@@ -120,6 +142,16 @@ def index():
         combined_gantt_b64=combined_gantt_b64,
         dates_table=dates_table,
     )
+
+
+@app.route("/graph-data")
+def graph_data():
+    """
+    Return a JSON snapshot of the current Neo4j graph
+    (Documents, Chunks, Dates, Entities + relationships).
+    """
+    data = fetch_graph_snapshot()
+    return jsonify(data)
 
 
 if __name__ == "__main__":
