@@ -205,20 +205,12 @@ def fetch_graph_snapshot() -> Dict[str, List[Dict[str, Any]]]:
     """
     Return a simple snapshot of the graph for visualization.
 
-    Structure:
-        {
-          "nodes": [
-             {"id": "123", "type": "Document", "label": "file.pdf"},
-             {"id": "124", "type": "Chunk",    "label": "Chunk 1"},
-             {"id": "125", "type": "Date",     "label": "2024-01-15"},
-             {"id": "126", "type": "Entity",   "label": "TechLine Office Solutions Pte Ltd"},
-          ],
-          "edges": [
-             {"source": "123", "target": "124", "type": "HAS_CHUNK"},
-             {"source": "124", "target": "125", "type": "MENTIONS_DATE"},
-             {"source": "124", "target": "126", "type": "MENTIONS"},
-          ]
-        }
+    nodes: [
+      {id, type, label, ...}
+    ]
+    edges: [
+      {source, target, type}
+    ]
     """
     nodes: Dict[str, Dict[str, Any]] = {}
     edges: List[Dict[str, Any]] = []
@@ -227,9 +219,9 @@ def fetch_graph_snapshot() -> Dict[str, List[Dict[str, Any]]]:
     with driver.session() as session:
         result = session.run(
             """
-            MATCH (d:Document)-[hc:HAS_CHUNK]->(c:Chunk)
-            OPTIONAL MATCH (c)-[md:MENTIONS_DATE]->(dt:Date)
-            OPTIONAL MATCH (c)-[me:MENTIONS]->(e:Entity)
+            MATCH (d:Document)-[:HAS_CHUNK]->(c:Chunk)
+            OPTIONAL MATCH (c)-[:MENTIONS_DATE]->(dt:Date)
+            OPTIONAL MATCH (c)-[:MENTIONS]->(e:Entity)
             RETURN d, c, dt, e
             """
         )
@@ -240,62 +232,78 @@ def fetch_graph_snapshot() -> Dict[str, List[Dict[str, Any]]]:
             dt = record["dt"]
             e = record["e"]
 
-            def add_node(node, ntype: str):
-                if node is None:
-                    return
-                nid = str(node.id)
-                if nid in nodes:
-                    return
+            # ---- Document node ----
+            if d:
+                did = str(d.id)
+                if did not in nodes:
+                    nodes[did] = {
+                        "id": did,
+                        "type": "Document",
+                        "label": d.get("filename") or "Document",
+                    }
 
-                if ntype == "Document":
-                    label = node.get("filename") or ntype
-                elif ntype == "Chunk":
-                    idx = node.get("index")
-                    label = f"Chunk {idx}" if idx is not None else "Chunk"
-                elif ntype == "Date":
-                    val = node.get("value")
-                    label = str(val) if val is not None else "Date"
-                elif ntype == "Entity":
-                    label = node.get("name") or "Entity"
-                else:
-                    label = ntype
+            # ---- Chunk node: short label (doc + chunk number) ----
+            if c:
+                cid = str(c.id)
+                if cid not in nodes:
+                    idx = c.get("index")
+                    doc_label = (d.get("filename") if d else None) or "Doc"
 
-                nodes[nid] = {
-                    "id": nid,
-                    "type": ntype,
-                    "label": label,
-                }
+                    # short, deterministic chunk label
+                    if idx is not None:
+                        label = f"{doc_label} · ch {idx}"
+                    else:
+                        label = f"{doc_label} · chunk"
 
-            # add nodes
-            add_node(d, "Document")
-            add_node(c, "Chunk")
-            add_node(dt, "Date")
-            add_node(e, "Entity")
+                    context = c.get("context") or ""
 
-            # add edges (deduplicated by (source, target, type))
+                    nodes[cid] = {
+                        "id": cid,
+                        "type": "Chunk",
+                        "label": label,
+                        # keep full context if you want to use it later in the UI
+                        "context": context,
+                    }
+
+            # ---- Date node ----
+            if dt:
+                dtid = str(dt.id)
+                if dtid not in nodes:
+                    val = dt.get("value")
+                    nodes[dtid] = {
+                        "id": dtid,
+                        "type": "Date",
+                        "label": str(val) if val is not None else "Date",
+                    }
+
+            # ---- Entity node ----
+            if e:
+                eid = str(e.id)
+                if eid not in nodes:
+                    nodes[eid] = {
+                        "id": eid,
+                        "type": "Entity",
+                        "label": e.get("name") or "Entity",
+                    }
+
+            # ---- edges (unchanged) ----
             if d and c:
                 key = (str(d.id), str(c.id), "HAS_CHUNK")
                 if key not in edge_keys:
                     edge_keys.add(key)
-                    edges.append(
-                        {"source": key[0], "target": key[1], "type": key[2]}
-                    )
+                    edges.append({"source": key[0], "target": key[1], "type": key[2]})
 
             if c and dt:
                 key = (str(c.id), str(dt.id), "MENTIONS_DATE")
                 if key not in edge_keys:
                     edge_keys.add(key)
-                    edges.append(
-                        {"source": key[0], "target": key[1], "type": key[2]}
-                    )
+                    edges.append({"source": key[0], "target": key[1], "type": key[2]})
 
             if c and e:
                 key = (str(c.id), str(e.id), "MENTIONS")
                 if key not in edge_keys:
                     edge_keys.add(key)
-                    edges.append(
-                        {"source": key[0], "target": key[1], "type": key[2]}
-                    )
+                    edges.append({"source": key[0], "target": key[1], "type": key[2]})
 
     return {
         "nodes": list(nodes.values()),

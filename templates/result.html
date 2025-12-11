@@ -17,7 +17,7 @@
     }
     .shell {
       width: 100%;
-      max-width: 1600px;      /* wider container */
+      max-width: 1600px;
       margin: 0 auto;
       padding: 0 20px;
     }
@@ -71,8 +71,8 @@
     @media (max-width: 880px) {
       .grid {
         display: grid;
-        grid-template-columns: 2fr 1.2fr; /* wider left panel */
-        gap: 24px;                        /* more spacing between columns */
+        grid-template-columns: 2fr 1.2fr;
+        gap: 24px;
       }
     }
     .panel {
@@ -299,15 +299,83 @@
             >
               Search
             </button>
+            <button
+              id="graph-reset-btn"
+              type="button"
+              style="
+                font-size:0.78rem;
+                border-radius:999px;
+                border:1px solid rgba(148,163,184,0.3);
+                background:rgba(15,23,42,0.7);
+                color:#e5e7eb;
+                padding:4px 10px;
+                cursor:pointer;
+              "
+            >
+              Reset
+            </button>
           </div>
 
           <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
             <span style="font-weight:500; color:#e5e7eb;">Filters:</span>
             <label><input id="filter-docs"   type="checkbox" checked style="margin-right:4px;">Documents</label>
-            <label><input id="filter-chunks" type="checkbox" checked style="margin-right:4px;">Chunks</label>
+            <label><input id="filter-chunks" type="checkbox" style="margin-right:4px;">Chunks</label>
             <label><input id="filter-dates"  type="checkbox" checked style="margin-right:4px;">Dates</label>
             <label><input id="filter-entities" type="checkbox" checked style="margin-right:4px;">Entities</label>
           </div>
+        </div>
+
+        <!-- Legend row -->
+        <div style="margin-top:6px; font-size:0.74rem; color:#9ca3af; display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+          <span style="font-weight:500;">Legend:</span>
+
+          <!-- Document -->
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="
+              width:14px;
+              height:10px;
+              border-radius:4px;
+              background:#38bdf8;
+              display:inline-block;
+            "></span>
+            Document
+          </span>
+
+          <!-- Chunk -->
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="
+              width:11px;
+              height:11px;
+              border-radius:999px;
+              background:#a855f7;
+              display:inline-block;
+            "></span>
+            Chunk
+          </span>
+
+          <!-- Date -->
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="
+              width:11px;
+              height:11px;
+              background:#f97316;
+              transform:rotate(45deg);
+              display:inline-block;
+            "></span>
+            Date
+          </span>
+
+          <!-- Entity -->
+          <span style="display:flex; align-items:center; gap:4px;">
+            <span style="
+              width:13px;
+              height:11px;
+              background:#22c55e;
+              clip-path:polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+              display:inline-block;
+            "></span>
+            Entity
+          </span>
         </div>
 
         <div
@@ -329,16 +397,17 @@
     </div>
   </div>
 
-    <!-- Cytoscape + graph init -->
+  <!-- Cytoscape + graph init -->
   <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      var container = document.getElementById("graph-container");
+      var container   = document.getElementById("graph-container");
       if (!container) return;
 
-      var infoEl = document.getElementById("graph-info");
+      var infoEl      = document.getElementById("graph-info");
       var searchInput = document.getElementById("graph-search");
-      var searchButton = document.getElementById("graph-search-btn");
+      var searchBtn   = document.getElementById("graph-search-btn");
+      var resetBtn    = document.getElementById("graph-reset-btn");
 
       fetch("{{ url_for('graph_data') }}")
         .then(function (r) { return r.json(); })
@@ -368,10 +437,24 @@
             });
           });
 
+          // layout helper with extra spacing
+          function makeLayout() {
+            return {
+              name: "cose",
+              animate: false,
+              idealEdgeLength: 160,
+              nodeRepulsion: 120000,
+              nodeOverlap: 10,
+              componentSpacing: 140,
+              padding: 80,
+              randomize: true
+            };
+          }
+
           var cy = cytoscape({
             container: container,
             elements: elements,
-            layout: { name: "cose", animate: false },
+            layout: makeLayout(),
             style: [
               {
                 selector: "node",
@@ -383,7 +466,8 @@
                   "text-halign": "center",
                   "color": "#e5e7eb",
                   "width": "20px",
-                  "height": "20px"
+                  "height": "20px",
+                  "opacity": 1
                 }
               },
               {
@@ -435,22 +519,70 @@
                 }
               },
               {
-                selector: ".highlighted",
+                selector: "node.highlighted",
                 style: {
-                  "background-color": "#22c55e",
+                  // subtle extra emphasis, but keep original fill color
+                  "border-width": 3,
+                  "border-color": "#22c55e"
+                }
+              },
+              {
+                selector: "edge.highlighted",
+                style: {
                   "line-color": "#22c55e",
-                  "target-arrow-color": "#22c55e"
+                  "target-arrow-color": "#22c55e",
+                  "width": 2
                 }
               }
             ]
           });
 
-          // --- type filters ---
+          // ----- helpers: reset + focus -----
+
+          function resetFocus() {
+            cy.elements().removeClass("selected");
+            cy.elements().removeClass("highlighted");
+            cy.nodes().style("opacity", 1);
+            cy.edges().style("opacity", 0.8);
+            if (infoEl) {
+              infoEl.textContent = "Type a name and hit Enter, or click a date/entity node to see which documents it is linked to.";
+            }
+          }
+
+          // focus on a collection of nodes: dim everything else
+          function applyFocus(focusNodes) {
+            if (focusNodes.empty()) {
+              resetFocus();
+              return cy.collection();
+            }
+
+            var focus = cy.collection();
+            focusNodes.forEach(function (n) {
+              focus = focus.union(n.closedNeighborhood());
+            });
+
+            cy.nodes().style("opacity", 0.15);
+            cy.edges().style("opacity", 0.1);
+
+            focus.nodes().style("opacity", 1.0);
+            focus.edges().style("opacity", 0.9);
+
+            cy.elements().removeClass("selected");
+            cy.elements().removeClass("highlighted");
+
+            focusNodes.addClass("selected");
+            focus.nodes().addClass("highlighted");
+            focus.edges().addClass("highlighted");
+
+            return focus;
+          }
+
+          // ----- type filters -----
 
           function applyTypeFilters() {
-            var showDocs = document.getElementById("filter-docs").checked;
-            var showChunks = document.getElementById("filter-chunks").checked;
-            var showDates = document.getElementById("filter-dates").checked;
+            var showDocs     = document.getElementById("filter-docs").checked;
+            var showChunks   = document.getElementById("filter-chunks").checked;
+            var showDates    = document.getElementById("filter-dates").checked;
             var showEntities = document.getElementById("filter-entities").checked;
 
             function toggleNodes(type, visible) {
@@ -462,7 +594,6 @@
             toggleNodes("Date", showDates);
             toggleNodes("Entity", showEntities);
 
-            // hide edges connected to hidden nodes
             cy.edges().forEach(function (e) {
               var srcVisible = e.source().style("display") !== "none";
               var tgtVisible = e.target().style("display") !== "none";
@@ -477,20 +608,12 @@
             }
           });
 
-          // --- click behaviour: show related documents ---
+          // ----- click behaviour: focus on a single node -----
 
           function showNodeContext(n) {
-            // clear previous highlighting
-            cy.elements().removeClass("selected");
-            cy.elements().removeClass("highlighted");
-
-            n.addClass("selected");
-
+            var focus = applyFocus(cy.collection(n));
             var neighborhood = n.closedNeighborhood();
             var docs = neighborhood.nodes('[type = "Document"]');
-
-            docs.addClass("highlighted");
-            neighborhood.edges().addClass("highlighted");
 
             if (infoEl) {
               var docLabels = docs.map(function (d) { return d.data("label"); });
@@ -505,75 +628,64 @@
                 infoEl.textContent = 'Selected ' + n.data("type") + ': "' + n.data("label") + '"';
               }
             }
+
+            if (!focus.empty()) {
+              cy.fit(focus, 60);
+            }
           }
 
           cy.on("tap", "node", function (evt) {
             showNodeContext(evt.target);
           });
 
-          // --- search behaviour ---
+          // ----- search behaviour: focus-mode around matches -----
 
           function runSearch() {
             if (!searchInput) return;
             var q = searchInput.value.trim().toLowerCase();
 
-            // clear highlights if query empty
             if (!q) {
-              cy.elements().removeClass("selected");
-              cy.elements().removeClass("highlighted");
-              if (infoEl) {
-                infoEl.textContent = "Type a name and hit Enter, or click a date/entity node to see which documents it is linked to.";
-              }
+              resetFocus();
+              cy.layout(makeLayout()).run();
+              cy.fit(cy.elements(), 60);
               return;
             }
 
-            // search in labels (current nodes only)
             var matches = cy.nodes().filter(function (n) {
               var label = n.data("label");
               return label && label.toLowerCase().includes(q);
             });
 
             if (matches.length === 0) {
-              cy.elements().removeClass("selected");
-              cy.elements().removeClass("highlighted");
-              if (infoEl) {
-                infoEl.textContent = "No nodes match \"" + q + "\".";
-              }
+              resetFocus();
+              if (infoEl) infoEl.textContent = 'No nodes match "' + q + '".';
               return;
             }
 
-            // highlight all matches + their docs, zoom to them
-            cy.elements().removeClass("selected");
-            cy.elements().removeClass("highlighted");
-
-            matches.addClass("selected");
+            var focus = applyFocus(matches);
 
             var docs = cy.collection();
             matches.forEach(function (m) {
-              var nh = m.closedNeighborhood();
-              docs = docs.union(nh.nodes('[type = "Document"]'));
-              nh.edges().addClass("highlighted");
+              docs = docs.union(m.closedNeighborhood().nodes('[type = "Document"]'));
             });
 
-            docs.addClass("highlighted");
-
-            // fit view to matches + docs
-            cy.fit(matches.union(docs), 50);
+            if (!focus.empty()) {
+              cy.fit(focus, 60);
+            }
 
             if (infoEl) {
-              var labels = matches.map(function (m) { return m.data("label"); });
               var docLabels = docs.map(function (d) { return d.data("label"); });
               var uniqueDocs = Array.from(new Set(docLabels));
 
               infoEl.textContent =
-                "Found " + matches.length + " node(s) matching \"" + q +
-                "\". Linked document(s): " +
+                "Found " + matches.length + ' node(s) matching "' + q +
+                '". Linked document(s): ' +
                 (uniqueDocs.length ? uniqueDocs.join(", ") : "none");
             }
           }
 
-          if (searchButton) {
-            searchButton.addEventListener("click", runSearch);
+          if (searchBtn) {
+            searchBtn.addEventListener("click", runSearch);
           }
           if (searchInput) {
             searchInput.addEventListener("keydown", function (evt) {
@@ -582,9 +694,17 @@
               }
             });
           }
+          if (resetBtn) {
+            resetBtn.addEventListener("click", function () {
+              searchInput.value = "";
+              resetFocus();
+              cy.layout(makeLayout()).run();
+              cy.fit(cy.elements(), 60);
+            });
+          }
 
-          // initial filter pass
           applyTypeFilters();
+          resetFocus();
         })
         .catch(function (err) {
           console.error("Failed to load graph data", err);
