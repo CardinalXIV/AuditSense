@@ -149,9 +149,33 @@ def graph_data():
     """
     Return a JSON snapshot of the current Neo4j graph
     (Documents, Chunks, Dates, Entities + relationships).
+
+    Never hard-crashes: always returns a JSON object with
+    at least {"nodes": [], "edges": []}.
     """
-    data = fetch_graph_snapshot()
-    return jsonify(data)
+    try:
+        # If later you want backend-side filtering, you can read ?q=...
+        # q = request.args.get("q") or None
+
+        data = fetch_graph_snapshot()
+
+        # Make sure we always return something JSON-shaped
+        if not data:
+            data = {"nodes": [], "edges": []}
+
+        # Normal success response
+        return jsonify(data)
+
+    except Exception as e:
+        # Log the full traceback to the Flask console for debugging
+        app.logger.exception("Error in /graph-data")
+
+        # Still return valid JSON so the frontend .json() call never explodes
+        return jsonify({
+            "nodes": [],
+            "edges": [],
+            "error": str(e),
+        }), 500
 
 
 if __name__ == "__main__":
