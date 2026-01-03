@@ -47,15 +47,12 @@ def index():
             flash(f"Unsupported file type: {suffix} for {original_name}")
             continue
 
-        # deterministic, human-readable id
         base_id = make_base_id(original_name)
 
-        # store raw file as <base_id><ext>
         raw_filename = f"{base_id}{suffix}"
         raw_path = RAW_DIR / raw_filename
         file.save(raw_path)
 
-        # run full ingestion
         success, payload = processor.ingest_file(raw_path)
         if not success:
             flash(
@@ -73,33 +70,44 @@ def index():
                 "chunks_dir": payload["chunks_dir"],
                 "num_chunks": payload["num_chunks"],
                 "sample_chunks": payload["sample_chunks"],
-                # per-document dates (list of dicts)
                 "dates": payload.get("dates", []),
-                # per-document entities (list of dicts)
                 "entities": payload.get("entities", []),
+
+                # new TF-IDF keyword extraction outputs
+               "keywords": payload.get("keywords", []),
+               "full_text": payload.get("full_text", ""),
             }
         )
 
         total_chunks += payload["num_chunks"]
 
-    # If everything failed, go back to upload page
     if not results:
         return redirect(url_for("index"))
 
     # ---------- build combined dates + Gantt ----------
+
+        # ---------- TF-IDF keywords across ALL docs ----------
+    all_texts = []
+    for doc in results:
+        # you can read from payload if you stored it, or from markdown_path
+        # assuming you added payload["full_text"] above:
+        if doc.get("full_text"):
+            all_texts.append(doc["full_text"])
+
+    all_keywords = []
+    if all_texts:
+        all_keywords = processor.extract_keywords_tfidf(all_texts, top_k=120)
 
     all_dates = []
     for doc in results:
         for row in doc.get("dates") or []:
             all_dates.append(
                 {
-                    # normalise keys to what DateExtractor.create_dates_dataframe expects
                     "source_file": row.get("Document") or doc["original_filename"],
                     "chunk_number": row.get("Chunk") or 0,
                     "date_text": row.get("Date Found") or "",
                     "formatted_date": row.get("Parsed Date") or "",
                     "context": row.get("Context") or "",
-                    # preserve the original detection method
                     "method": row.get("Method") or "unknown",
                 }
             )
@@ -118,6 +126,26 @@ def index():
                     "Context": row.get("Context") or "",
                 }
             )
+
+    # ---------- collect keywords across all docs ----------
+
+    all_keywords = []
+    all_chunk_keywords = []
+
+    seen = set()
+    for doc in results:
+        # doc-level keywords
+        for kw in doc.get("keywords") or []:
+            k = (kw or "").strip()
+            if not k:
+                continue
+            if k not in seen:
+                seen.add(k)
+                all_keywords.append(k)
+
+        # per-chunk keywords
+        for row in doc.get("chunk_keywords") or []:
+            all_chunk_keywords.append(row)
 
     combined_gantt_b64 = None
     dates_table = []
@@ -141,6 +169,8 @@ def index():
         total_chunks=total_chunks,
         combined_gantt_b64=combined_gantt_b64,
         dates_table=dates_table,
+        all_keywords=all_keywords,
+        all_chunk_keywords=all_chunk_keywords,
     )
 
 
@@ -154,23 +184,15 @@ def graph_data():
     at least {"nodes": [], "edges": []}.
     """
     try:
-        # If later you want backend-side filtering, you can read ?q=...
-        # q = request.args.get("q") or None
-
         data = fetch_graph_snapshot()
 
-        # Make sure we always return something JSON-shaped
         if not data:
             data = {"nodes": [], "edges": []}
 
-        # Normal success response
         return jsonify(data)
 
     except Exception as e:
-        # Log the full traceback to the Flask console for debugging
         app.logger.exception("Error in /graph-data")
-
-        # Still return valid JSON so the frontend .json() call never explodes
         return jsonify({
             "nodes": [],
             "edges": [],

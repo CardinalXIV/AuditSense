@@ -1,7 +1,9 @@
 # utils/file_processor.py
 
 from __future__ import annotations
-
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 import base64
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -13,17 +15,17 @@ from chunknorris.parsers import (
     CSVParser,
     ExcelParser,
 )
-    # avoid OCR / Tesseract dependency for now
 from chunknorris.chunkers import MarkdownChunker
 from chunknorris.pipelines import BasePipeline
 
 from utils.date_extract import DateExtractor
 from utils.ner import extract_entities
+from utils.keywords_tfidf import make_vectorizer, top_keywords_for_many_texts
 
 
 class FileProcessor:
     """
-    Thin facade around ChunkNorris + DateExtractor (+ NER).
+    Thin facade around ChunkNorris + DateExtractor (+ NER + TF-IDF keywords).
 
     ingest_file() returns:
         (success: bool, payload: dict)
@@ -37,6 +39,8 @@ class FileProcessor:
             "sample_chunks": List[str],
             "dates": List[dict],
             "entities": List[dict],
+            "keywords": List[str],             # doc-level
+            "chunk_keywords": List[dict],      # per-chunk
             "gantt_img_b64": Optional[str]
         }
     """
@@ -54,7 +58,7 @@ class FileProcessor:
     # ------------------------------------------------------------------
     def ingest_file(self, raw_path: Path) -> Tuple[bool, Dict]:
         """
-        Ingest + chunk + extract dates/entities for a single file.
+        Ingest + chunk + extract dates/entities/keywords for a single file.
 
         Returns:
             (True, payload_dict) on success
@@ -95,14 +99,18 @@ class FileProcessor:
             chunk_path.write_text(text, encoding="utf-8")
 
             # NER on full chunk text (PERSON/ORG)
-            ents = extract_entities(text)
+            try:
+                ents = extract_entities(text)
+            except Exception:
+                ents = []
+
             for ent in ents:
                 entities_rows.append(
                     {
                         "Document": raw_path.name,
                         "Chunk": idx,  # 1-based index
-                        "Entity": ent["text"],
-                        "Label": ent["label"],  # PERSON / ORG
+                        "Entity": ent.get("text", ""),
+                        "Label": ent.get("label", ""),
                         "Context": text[:400],
                     }
                 )
@@ -119,9 +127,51 @@ class FileProcessor:
         combined_markdown = "\n\n---\n\n".join(combined_md_parts)
         md_path = self.markdown_dir / f"{doc_stem}.md"
         md_path.write_text(combined_markdown, encoding="utf-8")
+        
+        # per-document keywords (TF-IDF on just this doc)
+        doc_keywords = self.extract_keywords_tfidf([combined_markdown], top_k=40)
 
         # Also write per-doc full.txt + chunks.json for easier inspection
         self._write_doc_artifacts(doc_chunk_dir, raw_path, chunks)
+
+        # --- TF-IDF Keywords (fit within this document across chunks) ---
+        doc_keywords: List[str] = []
+        chunk_keywords_rows: List[Dict] = []
+
+        try:
+            # TF-IDF across chunks gives a "KeyBERT-ish" feel deterministically
+            vectorizer = make_vectorizer(ngram_range=(1, 3), max_df=0.85, min_df=1)
+
+            per_chunk_keywords = top_keywords_for_many_texts(
+                combined_md_parts,   # each chunk text
+                top_k=8,
+                vectorizer=vectorizer,
+            )
+
+            # collect per chunk rows
+            for idx, kws in enumerate(per_chunk_keywords, start=1):
+                chunk_keywords_rows.append(
+                    {
+                        "Document": raw_path.name,
+                        "Chunk": idx,
+                        "Keywords": kws,
+                    }
+                )
+
+            # doc-level keywords: stable union (first come, first served)
+            seen = set()
+            for kws in per_chunk_keywords:
+                for k in kws:
+                    if k not in seen:
+                        seen.add(k)
+                        doc_keywords.append(k)
+                if len(doc_keywords) >= 20:
+                    break
+
+        except Exception:
+            # keywords are optional; don't fail ingestion if sklearn/vectorizer errors
+            doc_keywords = []
+            chunk_keywords_rows = []
 
         # --- Date extraction + Gantt chart (document-level) ---
         dates_rows, gantt_b64 = self._extract_dates_and_gantt(
@@ -137,6 +187,8 @@ class FileProcessor:
             "sample_chunks": sample_chunks,
             "dates": dates_rows,
             "entities": entities_rows,
+            "keywords": doc_keywords,
+            "full_text": combined_markdown,
             "gantt_img_b64": gantt_b64,
         }
         return True, payload
@@ -220,7 +272,6 @@ class FileProcessor:
         - dates_rows: list of dicts for the dates table
         - gantt_b64: base64 PNG string or None
         """
-        # Step 1: extract raw date info from full text
         raw_dates = self.date_extractor.extract_dates_from_text(full_text)
 
         if not raw_dates:
@@ -240,18 +291,80 @@ class FileProcessor:
                 }
             )
 
-        # Step 2: build dataframe
         dates_df = self.date_extractor.create_dates_dataframe(dates_list)
         if dates_df is None or dates_df.empty:
             return [], None
 
-        # Turn df into list-of-dicts for the HTML table
         dates_rows = dates_df.to_dict(orient="records")
 
-        # Step 3: build Gantt chart
         img_buffer = self.date_extractor.create_gantt_chart(dates_df)
         if not img_buffer:
             return dates_rows, None
 
         gantt_b64 = base64.b64encode(img_buffer.getvalue()).decode("ascii")
         return dates_rows, gantt_b64
+    
+    def extract_keywords_tfidf(self, texts: List[str], top_k: int = 80) -> List[str]:
+        extra_stop = {
+            "a", "an", "the", "and", "or", "but", "if", "then", "else",
+            "of", "to", "in", "on", "at", "by", "for", "from", "as",
+            "is", "are", "was", "were", "be", "been", "being",
+            "this", "that", "these", "those", "here", "there",
+            "shall", "may", "must", "can", "will", "would", "should",
+        }
+        stop_words = set(ENGLISH_STOP_WORDS).union(extra_stop)
+
+        token_pattern = r"(?u)\b[a-zA-Z][a-zA-Z]+\b"
+
+        cleaned = []
+        for t in texts:
+            t = (t or "").strip()
+            t = re.sub(r"\s+", " ", t)
+            cleaned.append(t)
+
+        # drop empties
+        cleaned = [t for t in cleaned if t]
+        n_docs = len(cleaned)
+        if n_docs == 0:
+            return []
+
+        # ✅ critical: don’t use fractional max_df when n_docs is tiny
+        # For 1 doc: allow all terms -> max_df must be 1.0 (or an int >= 1)
+        # For 2 docs: 0.85*2=1.7 -> ok, but keep it safe anyway
+        if n_docs <= 2:
+            max_df = 1.0
+            min_df = 1
+        else:
+            max_df = 0.85
+            min_df = 1
+
+        vec = TfidfVectorizer(
+            lowercase=True,
+            stop_words=list(stop_words),
+            token_pattern=token_pattern,
+            ngram_range=(1, 2),
+            min_df=min_df,
+            max_df=max_df,
+            strip_accents="unicode",
+        )
+
+        X = vec.fit_transform(cleaned)
+        feats = vec.get_feature_names_out()
+        scores = X.sum(axis=0).A1
+
+        ranked_idx = scores.argsort()[::-1]
+        out, seen = [], set()
+
+        for i in ranked_idx:
+            term = feats[i].strip()
+            if len(term) < 3:
+                continue
+            key = term.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(term)
+            if len(out) >= top_k:
+                break
+
+        return out

@@ -267,6 +267,43 @@
         <h2>Knowledge graph snapshot</h2>
         <small>Documents, chunks, dates &amp; entities from Neo4j.</small>
 
+        {% if all_keywords and all_keywords|length > 0 %}
+        <div style="margin-top:10px;">
+          <div style="font-size:0.78rem; color:#9ca3af; margin-bottom:6px;">
+            Quick keywords (TF-IDF):
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            {% for kw in all_keywords[:24] %}
+              <button
+                type="button"
+                class="kw-chip"
+                data-kw="{{ kw }}"
+                style="
+                  border-radius:999px;
+                  border:1px solid rgba(148,163,184,0.45);
+                  background:rgba(15,23,42,0.75);
+                  color:#e5e7eb;
+                  font-size:0.74rem;
+                  padding:4px 10px;
+                  cursor:pointer;
+                  white-space:nowrap;
+                "
+                title="Search graph for '{{ kw }}'"
+              >
+                {{ kw }}
+              </button>
+            {% endfor %}
+
+            {% if all_keywords|length > 24 %}
+              <span style="font-size:0.74rem; color:#9ca3af;">
+                +{{ all_keywords|length - 24 }} more
+              </span>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
         <!-- Search + filters row -->
         <div style="margin-top:8px; font-size:0.78rem; color:#9ca3af; display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
           <!-- Search controls -->
@@ -887,6 +924,22 @@
               cy.fit(cy.elements(), 60);
             });
           }
+
+          // keyword chips: click -> fill search box + run (event delegation)
+          document.addEventListener("click", function (evt) {
+            var btn = evt.target.closest(".kw-chip");
+            if (!btn) return;
+
+            if (!searchInput) return;
+
+            var kw = btn.getAttribute("data-kw") || "";
+            searchInput.value = kw;
+
+            // runSearch exists only after cy is created, so guard it
+            if (typeof runSearch === "function") {
+              runSearch();
+            }
+          });
 
           applyTypeFilters();
           resetFocus();
