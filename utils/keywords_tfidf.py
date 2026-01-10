@@ -2,98 +2,153 @@
 from __future__ import annotations
 
 import re
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 
-from sklearn.feature_extraction.text import TfidfVectorizer
+import spacy
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 
-# Keep this small and project-specific; you can expand later.
+
+# ---------------------------------------------------------------------
+# spaCy setup (loaded once, lightweight)
+# ---------------------------------------------------------------------
+# We only need tokenization + POS + lemmatization
+_nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+
+
+# ---------------------------------------------------------------------
+# Stopwords
+# ---------------------------------------------------------------------
+# Project / legal / audit-domain stopwords
 DOMAIN_STOPWORDS = {
     "shall", "must", "may", "including", "hereby", "thereof", "herein",
     "section", "clause", "annex", "appendix", "schedule",
+    "benefit", "type", "use", "using", "get", "gain", "provide",
 }
 
-_token_re = re.compile(r"[A-Za-z0-9]+(?:[-_/][A-Za-z0-9]+)*")
+URL_JUNK = {
+    "http", "https", "www", "com", "net", "org", "io",
+    "fwlink", "lnkid", "linkid",
+}
 
-def _preprocess(text: str) -> str:
+# Combined stopwords (sklearn + domain)
+ALL_STOPWORDS = set(ENGLISH_STOP_WORDS) | DOMAIN_STOPWORDS | URL_JUNK
+
+
+# ---------------------------------------------------------------------
+# spaCy-based linguistic cleaning
+# ---------------------------------------------------------------------
+def spacy_clean_for_tfidf(text: str) -> str:
+    """
+    Reduce text to lemmatized NOUN / PROPN tokens only.
+
+    Removes:
+    - stopwords (English + domain)
+    - numbers
+    - punctuation
+    - short / low-signal tokens
+
+    Output is a space-separated string suitable for TF-IDF.
+    """
     if not text:
         return ""
-    # keep hyphenated tokens, normalize whitespace
-    text = text.replace("\u00a0", " ")
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
 
-def make_vectorizer(
-    ngram_range: Tuple[int, int] = (1, 3),
-    max_features: int = 20000,
-    min_df: int = 1,
-    max_df: float = 0.85,
+    doc = _nlp(text)
+    kept: List[str] = []
+
+    for tok in doc:
+        if tok.is_stop or tok.is_punct or tok.is_space or tok.like_num:
+            continue
+        if tok.pos_ not in {"NOUN", "PROPN"}:
+            continue
+        if tok.like_url or tok.like_email:
+            continue
+
+        lemma = tok.lemma_.lower().strip()
+
+        if "." in lemma or "/" in lemma:   # kills com/fwlink, microsoft.com, paths, etc.
+            continue
+        if not lemma:
+            continue
+        if lemma in ALL_STOPWORDS:
+            continue
+        if len(lemma) < 3:
+            continue
+
+        kept.append(lemma)
+
+    return " ".join(kept)
+
+
+# ---------------------------------------------------------------------
+# Safe TF-IDF vectorizer factory
+# ---------------------------------------------------------------------
+def make_vectorizer_for_corpus(
+    doc_count: int,
+    ngram_range: Tuple[int, int] = (1, 2),
+    max_features: int = 5000,
 ) -> TfidfVectorizer:
+    """
+    Create a TF-IDF vectorizer that is SAFE for small corpora.
+
+    Avoids the classic:
+        ValueError: max_df corresponds to < documents than min_df
+    """
+    if doc_count <= 1:
+        min_df = 1
+        max_df = 1.0
+    else:
+        min_df = 1
+        # ensure max_df never drops below min_df
+        max_df = min(0.85, (doc_count - 1) / doc_count)
+
     return TfidfVectorizer(
-        preprocessor=_preprocess,
-        token_pattern=_token_re.pattern,
+        preprocessor=spacy_clean_for_tfidf,
         lowercase=True,
-        stop_words=list(DOMAIN_STOPWORDS),
         ngram_range=ngram_range,
         max_features=max_features,
         min_df=min_df,
         max_df=max_df,
-        sublinear_tf=True,   # helps tame repetition
+        sublinear_tf=True,
         norm="l2",
     )
 
-def top_keywords_for_text(
-    text: str,
-    top_k: int = 15,
-    vectorizer: Optional[TfidfVectorizer] = None,
+
+# ---------------------------------------------------------------------
+# Public API: taxonomy-style keyword extraction
+# ---------------------------------------------------------------------
+def extract_taxonomy_keywords(
+    texts: List[str],
+    top_k: int = 20,
 ) -> List[str]:
     """
-    If you only have ONE document, TF-IDF reduces to TF (IDF constant).
-    Still useful, but best results come from fitting across multiple docs/chunks.
+    Extract clean, business-meaningful keywords across a corpus
+    using spaCy-filtered TF-IDF.
+
+    Intended for:
+    - quick keyword chips
+    - document taxonomy hints
+    - graph search shortcuts
+
+    Returns:
+        A single ranked keyword list (highest signal first).
     """
-    if not text or not text.strip():
+    if not texts:
         return []
 
-    vec = vectorizer or make_vectorizer()
-    X = vec.fit_transform([text])
-    return _top_terms_from_row(X, vec, row=0, top_k=top_k)
+    vec = make_vectorizer_for_corpus(len(texts))
+    X = vec.fit_transform(texts)
 
-def top_keywords_for_many_texts(
-    texts: List[str],
-    top_k: int = 15,
-    vectorizer: Optional[TfidfVectorizer] = None,
-) -> List[List[str]]:
-    """
-    Fit TF-IDF across MANY texts (docs or chunks), then return top_k keywords per text.
-    This is the most 'KeyBERT-like' usage.
-    """
-    cleaned = [t for t in (texts or [])]
-    if not cleaned:
+    if X.shape[1] == 0:
         return []
 
-    vec = vectorizer or make_vectorizer()
-    X = vec.fit_transform(cleaned)
+    # Average TF-IDF score across documents
+    scores = X.mean(axis=0).A1
+    features = vec.get_feature_names_out()
 
-    out: List[List[str]] = []
-    for i in range(X.shape[0]):
-        out.append(_top_terms_from_row(X, vec, row=i, top_k=top_k))
-    return out
+    ranked = sorted(
+        zip(features, scores),
+        key=lambda x: x[1],
+        reverse=True,
+    )
 
-def _top_terms_from_row(X, vec: TfidfVectorizer, row: int, top_k: int) -> List[str]:
-    feature_names = vec.get_feature_names_out()
-    row_vec = X.getrow(row)
-    if row_vec.nnz == 0:
-        return []
-
-    # get top indices by tfidf weight
-    pairs = zip(row_vec.indices, row_vec.data)
-    top = sorted(pairs, key=lambda x: x[1], reverse=True)[:top_k]
-
-    terms = [feature_names[idx] for idx, _ in top]
-
-    # small “diversity” cleanup: drop terms that are substrings of earlier picks
-    dedup: List[str] = []
-    for t in terms:
-        if any(t in prev or prev in t for prev in dedup):
-            continue
-        dedup.append(t)
-    return dedup
+    return [term for term, _ in ranked[:top_k]]

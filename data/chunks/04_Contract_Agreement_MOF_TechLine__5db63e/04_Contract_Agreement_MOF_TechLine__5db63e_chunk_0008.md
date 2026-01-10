@@ -1,4 +1,0 @@
-# S$218,400.00 (Singapore Dollars Two Hundred Eighteen  Thousand Four Hundred Only), inclusive of GST.
-
-## **7. Documents Forming the Contract**
-7.1 The following documents shall form, and be read as, part of this Contract: a. This Contract Agreement; b. Letter of Award dated  **5 February 2026**  (Ref: MOF/ITQ/2025/015); c. The Contractor’s quotation dated  **12 January 2026**  (Ref:  **MOF/ITQ/2025/15**  ); d. Annex A -  Pricing and Quantities; e. Annex B -  Technical Specifications. IN WITNESS WHEREOF the parties hereto have executed this Contract Agreement on the date first written above. *Signed digitally* For and on behalf of **THE GOVERNMENT OF THE REPUBLIC OF SINGAPORE** Name: Lim Jia Hui Designation: Assistant Director (Corporate Services) For and on behalf of **TechLine Office Solutions Pte Ltd** Name: Tan Wei Lin Designation: Sales Manager

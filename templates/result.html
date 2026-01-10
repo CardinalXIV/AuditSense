@@ -36,13 +36,8 @@
       color: #a5b4fc;
       text-decoration: none;
     }
-    a.back-link:hover {
-      text-decoration: underline;
-    }
-    h1 {
-      margin: 4px 0 4px;
-      font-size: 1.45rem;
-    }
+    a.back-link:hover { text-decoration: underline; }
+    h1 { margin: 4px 0 4px; font-size: 1.45rem; }
     .subtitle {
       font-size: 0.85rem;
       color: #9ca3af;
@@ -69,11 +64,7 @@
       gap: 18px;
     }
     @media (max-width: 880px) {
-      .grid {
-        display: grid;
-        grid-template-columns: 2fr 1.2fr;
-        gap: 24px;
-      }
+      .grid { grid-template-columns: 2fr 1.2fr; gap: 24px; }
     }
     .panel {
       border-radius: 18px;
@@ -81,14 +72,8 @@
       background: rgba(15,23,42,0.98);
       padding: 14px 14px 10px;
     }
-    .panel h2 {
-      font-size: 0.98rem;
-      margin: 0 0 8px;
-    }
-    .panel small {
-      color: #9ca3af;
-      font-size: 0.77rem;
-    }
+    .panel h2 { font-size: 0.98rem; margin: 0 0 8px; }
+    .panel small { color: #9ca3af; font-size: 0.77rem; }
     .gantt-wrap {
       border-radius: 14px;
       background: #020617;
@@ -123,9 +108,7 @@
       top: 0;
       z-index: 1;
     }
-    tbody tr:nth-child(even) {
-      background: rgba(15,23,42,0.96);
-    }
+    tbody tr:nth-child(even) { background: rgba(15,23,42,0.96); }
     .doc-card {
       border-radius: 14px;
       border: 1px solid rgba(30,64,175,0.7);
@@ -162,11 +145,90 @@
       overflow: auto;
       white-space: pre-wrap;
     }
-    .chunk-preview + .chunk-preview {
-      margin-top: 4px;
+    .chunk-preview + .chunk-preview { margin-top: 4px; }
+
+    /* evidence list styles */
+    .evidence-wrap {
+      margin-top: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(31,41,55,0.9);
+      background: #020617;
+      padding: 10px;
+    }
+    .evidence-header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:8px;
+    }
+    .evidence-title {
+      font-size:0.82rem;
+      font-weight:600;
+      color:#e5e7eb;
+    }
+    .evidence-meta {
+      font-size:0.74rem;
+      color:#9ca3af;
+      min-height: 1.2em;
+      text-align:right;
+    }
+    .evidence-list {
+      max-height: 240px;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .evidence-item {
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,184,0.18);
+      background: rgba(15,23,42,0.75);
+      padding: 8px 10px;
+    }
+    .evidence-item:hover { border-color: rgba(56,189,248,0.6); }
+    .evidence-top {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      font-size:0.74rem;
+      color:#cbd5e1;
+      margin-bottom:6px;
+      align-items:center;
+    }
+    .evidence-snippet {
+      font-size: 0.76rem;
+      color: #e5e7eb;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .evidence-actions {
+      display:flex;
+      gap:6px;
+      align-items:center;
+      flex-shrink:0;
+    }
+    .evidence-btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.35);
+      background: rgba(2,6,23,0.7);
+      color: #e5e7eb;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-size: 0.72rem;
+    }
+    .evidence-btn:hover { border-color: rgba(56,189,248,0.6); }
+
+    mark {
+      background: rgba(250,204,21,0.25);
+      color: #e5e7eb;
+      padding: 0 2px;
+      border-radius: 3px;
     }
   </style>
 </head>
+
 <body>
   <div class="shell">
     <div class="card">
@@ -185,7 +247,7 @@
       </div>
 
       <div class="grid">
-        <!-- Left: combined Gantt + dates table -->
+        <!-- Left -->
         <div class="panel">
           <h2>Timeline across all documents</h2>
           <small>Each bar represents the month range where dates appear in that document.</small>
@@ -228,7 +290,7 @@
           {% endif %}
         </div>
 
-        <!-- Right: per-document summary & sample chunks -->
+        <!-- Right -->
         <div class="panel">
           <h2>Documents & sample chunks</h2>
           <small>Quick sanity-check of what the pipeline saw.</small>
@@ -247,14 +309,10 @@
 
                 {% if doc.sample_chunks %}
                   {% for chunk in doc.sample_chunks %}
-                    <div class="chunk-preview">
-                      {{ chunk }}
-                    </div>
+                    <div class="chunk-preview">{{ chunk }}</div>
                   {% endfor %}
                 {% else %}
-                  <div class="chunk-preview">
-                    No preview chunks available.
-                  </div>
+                  <div class="chunk-preview">No preview chunks available.</div>
                 {% endif %}
               </div>
             {% endfor %}
@@ -262,7 +320,7 @@
         </div>
       </div>
 
-      <!-- Graph panel with filters + search -->
+      <!-- Graph panel -->
       <div class="panel" style="margin-top:18px;">
         <h2>Knowledge graph snapshot</h2>
         <small>Documents, chunks, dates &amp; entities from Neo4j.</small>
@@ -290,9 +348,7 @@
                   white-space:nowrap;
                 "
                 title="Search graph for '{{ kw }}'"
-              >
-                {{ kw }}
-              </button>
+              >{{ kw }}</button>
             {% endfor %}
 
             {% if all_keywords|length > 24 %}
@@ -302,11 +358,10 @@
             {% endif %}
           </div>
         </div>
-      {% endif %}
+        {% endif %}
 
-        <!-- Search + filters row -->
+        <!-- Search row -->
         <div style="margin-top:8px; font-size:0.78rem; color:#9ca3af; display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
-          <!-- Search controls -->
           <div style="display:flex; align-items:center; gap:6px;">
             <input
               id="graph-search"
@@ -322,171 +377,78 @@
                 min-width:220px;
               "
             />
-            <button
-              id="graph-search-btn"
-              type="button"
-              style="
-                font-size:0.78rem;
-                border-radius:999px;
-                border:1px solid rgba(148,163,184,0.6);
-                background:rgba(15,23,42,0.9);
-                color:#e5e7eb;
-                padding:4px 10px;
-                cursor:pointer;
-              "
-            >
+            <button id="graph-search-btn" type="button"
+              style="font-size:0.78rem;border-radius:999px;border:1px solid rgba(148,163,184,0.6);background:rgba(15,23,42,0.9);color:#e5e7eb;padding:4px 10px;cursor:pointer;">
               Search
             </button>
-            <button
-              id="graph-reset-btn"
-              type="button"
-              style="
-                font-size:0.78rem;
-                border-radius:999px;
-                border:1px solid rgba(148,163,184,0.3);
-                background:rgba(15,23,42,0.7);
-                color:#e5e7eb;
-                padding:4px 10px;
-                cursor:pointer;
-              "
-            >
+            <button id="graph-reset-btn" type="button"
+              style="font-size:0.78rem;border-radius:999px;border:1px solid rgba(148,163,184,0.3);background:rgba(15,23,42,0.7);color:#e5e7eb;padding:4px 10px;cursor:pointer;">
               Reset
             </button>
           </div>
 
-          <!-- Type filters -->
           <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
             <span style="font-weight:500; color:#e5e7eb;">Filters:</span>
-            <label><input id="filter-docs"   type="checkbox" checked style="margin-right:4px;">Documents</label>
+            <label><input id="filter-docs" type="checkbox" checked style="margin-right:4px;">Documents</label>
             <label><input id="filter-chunks" type="checkbox" style="margin-right:4px;">Chunks</label>
-            <label><input id="filter-dates"  type="checkbox" checked style="margin-right:4px;">Dates</label>
+            <label><input id="filter-dates" type="checkbox" checked style="margin-right:4px;">Dates</label>
             <label><input id="filter-entities" type="checkbox" checked style="margin-right:4px;">Entities</label>
           </div>
         </div>
 
-        <!-- Legend -->
-        <div style="
-          margin-top:6px;
-          font-size:0.74rem;
-          color:#9ca3af;
-          display:flex;
-          flex-wrap:wrap;
-          gap:18px;
-          align-items:center;
-        ">
-          <span style="font-weight:500;">Legend:</span>
+        <!-- Term evidence panel -->
+        <div class="evidence-wrap">
+          <div class="evidence-header">
+            <div class="evidence-title">Term evidence (where it appears)</div>
+            <div class="evidence-meta" id="term-evidence-meta">
+              Search above to see chunk-level evidence here.
+            </div>
+          </div>
+          <div class="evidence-list" id="term-evidence-list"></div>
+        </div>
 
-          <!-- Edge: HAS_CHUNK -->
+        <!-- Legend -->
+        <div style="margin-top:10px;font-size:0.74rem;color:#9ca3af;display:flex;flex-wrap:wrap;gap:18px;align-items:center;">
+          <span style="font-weight:500;">Legend:</span>
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:12px; height:3px;
-              background:#64748b;
-              display:inline-block;
-              border-radius:2px;
-            "></span>
+            <span style="width:12px; height:3px; background:#64748b; display:inline-block; border-radius:2px;"></span>
             HAS_CHUNK
           </span>
-
-          <!-- Edge: MENTIONS_DATE -->
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:12px; height:0;
-              border-top:2px dashed #f97316;
-              display:inline-block;
-            "></span>
+            <span style="width:12px; height:0; border-top:2px dashed #f97316; display:inline-block;"></span>
             MENTIONS_DATE
           </span>
-
-          <!-- Edge: MENTIONS(entity) -->
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:12px; height:3px;
-              background:#22c55e;
-              display:inline-block;
-              border-radius:2px;
-            "></span>
+            <span style="width:12px; height:3px; background:#22c55e; display:inline-block; border-radius:2px;"></span>
             MENTIONS(entity)
           </span>
-
-          <!-- Node legend separator -->
           <span style="margin-left:18px; font-weight:500;">Nodes:</span>
-
-          <!-- Node: Document -->
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:14px; height:10px;
-              border-radius:4px;
-              background:#38bdf8;
-              display:inline-block;
-            "></span>
+            <span style="width:14px; height:10px; border-radius:4px; background:#38bdf8; display:inline-block;"></span>
             Document
           </span>
-
-          <!-- Node: Chunk -->
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:11px; height:11px;
-              border-radius:50%;
-              background:#a855f7;
-              display:inline-block;
-            "></span>
+            <span style="width:11px; height:11px; border-radius:50%; background:#a855f7; display:inline-block;"></span>
             Chunk
           </span>
-
-          <!-- Node: Date -->
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:11px; height:11px;
-              background:#f97316;
-              transform:rotate(45deg);
-              display:inline-block;
-            "></span>
+            <span style="width:11px; height:11px; background:#f97316; transform:rotate(45deg); display:inline-block;"></span>
             Date
           </span>
-
-          <!-- Node: Entity -->
           <span style="display:flex; align-items:center; gap:4px;">
-            <span style="
-              width:13px; height:11px;
-              background:#22c55e;
-              clip-path:polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
-              display:inline-block;
-            "></span>
+            <span style="width:13px; height:11px; background:#22c55e; clip-path:polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); display:inline-block;"></span>
             Entity
           </span>
         </div>
 
-        <!-- Graph + sidebar row -->
+        <!-- Graph + sidebar -->
         <div style="margin-top:10px; display:flex; gap:12px; align-items:stretch;">
-          <div
-            id="graph-container"
-            style="
-              flex:3;
-              height:420px;
-              border-radius:14px;
-              border:1px solid rgba(31,41,55,0.9);
-              background:#020617;
-            "
-          ></div>
+          <div id="graph-container"
+            style="flex:3;height:420px;border-radius:14px;border:1px solid rgba(31,41,55,0.9);background:#020617;"></div>
 
-          <div
-            id="graph-sidebar"
-            style="
-              flex:1;
-              min-width:0;
-              height:420px;
-              border-radius:14px;
-              border:1px solid rgba(31,41,55,0.9);
-              background:#020617;
-              padding:10px 10px 8px;
-              font-size:0.78rem;
-              color:#e5e7eb;
-              overflow:auto;
-            "
-          >
-            <div style="color:#9ca3af;">
-              Click a node in the graph to see details here.
-            </div>
+          <div id="graph-sidebar"
+            style="flex:1;min-width:0;height:420px;border-radius:14px;border:1px solid rgba(31,41,55,0.9);background:#020617;padding:10px 10px 8px;font-size:0.78rem;color:#e5e7eb;overflow:auto;">
+            <div style="color:#9ca3af;">Click a node in the graph to see details here.</div>
           </div>
         </div>
 
@@ -498,7 +460,6 @@
     </div>
   </div>
 
-  <!-- Cytoscape + graph init -->
   <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
@@ -511,18 +472,107 @@
       var searchBtn   = document.getElementById("graph-search-btn");
       var resetBtn    = document.getElementById("graph-reset-btn");
 
+      var evidenceMeta = document.getElementById("term-evidence-meta");
+      var evidenceList = document.getElementById("term-evidence-list");
+
+      function escapeHtml(str) {
+        if (!str) return "";
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function highlight(snippet, q) {
+        if (!snippet) return "";
+        var safe = escapeHtml(snippet);
+        if (!q) return safe;
+
+        var re = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "ig");
+        return safe.replace(re, "<mark>$1</mark>");
+      }
+
+      function setEvidenceLoading(q) {
+        if (evidenceMeta) evidenceMeta.textContent = 'Searching evidence for "' + q + '"...';
+        if (evidenceList) evidenceList.innerHTML = "";
+      }
+      function setEvidenceEmpty(q) {
+        if (evidenceMeta) evidenceMeta.textContent = 'No chunk evidence found for "' + q + '".';
+        if (evidenceList) evidenceList.innerHTML = "";
+      }
+      function setEvidenceError(q) {
+        if (evidenceMeta) evidenceMeta.textContent = 'Could not load term evidence for "' + q + '".';
+        if (evidenceList) evidenceList.innerHTML = "";
+      }
+      function clearEvidence() {
+        if (evidenceMeta) evidenceMeta.textContent = "Search above to see chunk-level evidence here.";
+        if (evidenceList) evidenceList.innerHTML = "";
+      }
+
+      // IMPORTANT: match your backend route name:
+      // app.py route should be /term-search
+      function runTermEvidenceSearch(qRaw) {
+        var q = (qRaw || "").trim();
+        if (!q) { clearEvidence(); return; }
+
+        setEvidenceLoading(q);
+
+        fetch("/term-search?q=" + encodeURIComponent(q))
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var matches = (data && data.matches) ? data.matches : [];
+            if (!matches.length) { setEvidenceEmpty(q); return; }
+            renderEvidence(q, matches.map(function (m) {
+              return {
+                document: m.document || m.source_file,
+                chunk: m.chunk,
+                chunk_id: m.chunk_id,
+                snippet: m.snippet
+              };
+            }));
+          })
+          .catch(function () { setEvidenceError(q); });
+      }
+
+      function renderEvidence(q, matches) {
+        if (!evidenceMeta || !evidenceList) return;
+
+        var count = (matches || []).length;
+        evidenceMeta.textContent =
+          'Found ' + count + ' chunk hit(s) for "' + q + '". Click a card to view it.';
+
+        var html = "";
+        matches.slice(0, 12).forEach(function (m) {
+          // backend returns: {document, chunk, chunk_id, snippet}
+          var doc = escapeHtml(m.document || "unknown");
+          var chunk = escapeHtml(String(m.chunk || ""));
+          var chunkId = escapeHtml(m.chunk_id || "");
+          var snippetHtml = highlight(m.snippet || "", q);
+
+          html +=
+            '<div class="evidence-item" data-doc="' + doc + '" data-chunk="' + chunk + '" data-chunkid="' + chunkId + '">' +
+              '<div class="evidence-top">' +
+                '<div>' + doc + ' <span style="color:#9ca3af;">· ch ' + chunk + '</span></div>' +
+                '<div class="evidence-actions">' +
+                  '<button class="evidence-btn evidence-focus" type="button" data-doc="' + doc + '" data-chunk="' + chunk + '">Focus</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="evidence-snippet">' + snippetHtml + '</div>' +
+            '</div>';
+        });
+
+        evidenceList.innerHTML = html;
+      }
+
       fetch("{{ url_for('graph_data') }}")
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          // basic guard: if backend returned an error, show message and bail
           if (!data || (!data.nodes && !data.edges)) {
             if (infoEl) infoEl.textContent = "No graph data available yet.";
             return;
           }
 
           var elements = [];
-
-          // nodes
           (data.nodes || []).forEach(function (n) {
             elements.push({
               data: {
@@ -533,8 +583,6 @@
               }
             });
           });
-
-          // edges
           (data.edges || []).forEach(function (e) {
             elements.push({
               data: {
@@ -564,9 +612,7 @@
             elements: elements,
             layout: makeLayout(),
             style: [
-              {
-                selector: "node",
-                style: {
+              { selector: "node", style: {
                   "background-color": "#6b7280",
                   "label": "data(label)",
                   "font-size": "8px",
@@ -576,117 +622,62 @@
                   "width": "20px",
                   "height": "20px",
                   "opacity": 1
-                }
-              },
-              {
-                selector: 'node[type = "Document"]',
-                style: {
+              }},
+              { selector: 'node[type = "Document"]', style: {
                   "shape": "round-rectangle",
                   "width": "80px",
                   "height": "30px",
                   "background-color": "#38bdf8"
-                }
-              },
-              {
-                selector: 'node[type = "Chunk"]',
-                style: {
+              }},
+              { selector: 'node[type = "Chunk"]', style: {
                   "shape": "ellipse",
                   "background-color": "#a855f7"
-                }
-              },
-              {
-                selector: 'node[type = "Date"]',
-                style: {
+              }},
+              { selector: 'node[type = "Date"]', style: {
                   "shape": "diamond",
                   "background-color": "#f97316"
-                }
-              },
-              {
-                selector: 'node[type = "Entity"]',
-                style: {
+              }},
+              { selector: 'node[type = "Entity"]', style: {
                   "shape": "hexagon",
                   "background-color": "#22c55e"
-                }
-              },
-              {
-                selector: "edge",
-                style: {
+              }},
+              { selector: "edge", style: {
                   "width": 1,
                   "curve-style": "bezier",
                   "line-color": "#94a3b8",
                   "target-arrow-color": "#94a3b8",
                   "target-arrow-shape": "triangle",
                   "opacity": 0.8
-                }
-              },
-              {
-                selector: 'edge[type = "HAS_CHUNK"]',
-                style: {
+              }},
+              { selector: 'edge[type = "HAS_CHUNK"]', style: {
                   "line-color": "#64748b",
                   "target-arrow-color": "#64748b",
                   "width": 1.2
-                }
-              },
-              {
-                selector: 'edge[type = "MENTIONS_DATE"]',
-                style: {
+              }},
+              { selector: 'edge[type = "MENTIONS_DATE"]', style: {
                   "line-color": "#f97316",
                   "target-arrow-color": "#f97316",
                   "line-style": "dashed",
                   "width": 1.5
-                }
-              },
-              {
-                selector: 'edge[type = "MENTIONS"]',
-                style: {
+              }},
+              { selector: 'edge[type = "MENTIONS"]', style: {
                   "line-color": "#22c55e",
                   "target-arrow-color": "#22c55e",
                   "width": 1.5
-                }
-              },
-              {
-                selector: ".selected",
-                style: {
-                  "border-width": 3,
-                  "border-color": "#facc15"
-                }
-              },
-              {
-                selector: "node.highlighted",
-                style: {
-                  "border-width": 3,
-                  "border-color": "#22c55e"
-                }
-              },
-              {
-                selector: "edge.highlighted",
-                style: {
-                  "width": 2,
-                  "opacity": 1.0
-                }
-              }
+              }},
+              { selector: ".selected", style: { "border-width": 3, "border-color": "#facc15" } },
+              { selector: "node.highlighted", style: { "border-width": 3, "border-color": "#22c55e" } },
+              { selector: "edge.highlighted", style: { "width": 2, "opacity": 1.0 } }
             ]
           });
 
-          // initial fit so it doesn't start as a tiny blob
           cy.ready(function () {
-            if (cy.elements().length > 0) {
-              cy.fit(cy.elements(), 60);
-            }
+            if (cy.elements().length > 0) cy.fit(cy.elements(), 60);
           });
 
-          // ----- sidebar helpers -----
           function setSidebarHtml(html) {
             if (!sidebarEl) return;
             sidebarEl.innerHTML = html;
-          }
-
-          function escapeHtml(str) {
-            if (!str) return "";
-            return String(str)
-              .replace(/&/g, "&amp;")
-              .replace(/</g, "&lt;")
-              .replace(/>/g, "&gt;");
           }
 
           function truncate(str, max) {
@@ -704,58 +695,35 @@
             var docs  = docNames || [];
 
             var html = "";
-            html += `<div style="font-size:0.82rem; font-weight:600; margin-bottom:4px;">${escapeHtml(type)} node</div>`;
-            html += `<div style="font-size:0.9rem; font-weight:600; margin-bottom:8px; word-break:break-all;">${escapeHtml(label)}</div>`;
-
-            if (type === "Document") {
-              html += `<div style="margin-bottom:8px; color:#9ca3af;">Type: Document</div>`;
-              if (docs.length) {
-                html += `<div style="margin-bottom:6px;">Connected entities / dates:</div>`;
-              } else {
-                html += `<div style="margin-bottom:6px; color:#9ca3af;">Click neighbours in the graph to inspect them.</div>`;
-              }
-            } else if (type === "Entity") {
-              html += `<div style="margin-bottom:6px; color:#9ca3af;">Type: Entity (e.g. ORG / PERSON / PRODUCT)</div>`;
-            } else if (type === "Date") {
-              html += `<div style="margin-bottom:6px; color:#9ca3af;">Type: Date</div>`;
-            } else if (type === "Chunk") {
-              html += `<div style="margin-bottom:6px; color:#9ca3af;">Type: Chunk (section of a document)</div>`;
-            }
+            html += '<div style="font-size:0.82rem; font-weight:600; margin-bottom:4px;">' + escapeHtml(type) + ' node</div>';
+            html += '<div style="font-size:0.9rem; font-weight:600; margin-bottom:8px; word-break:break-all;">' + escapeHtml(label) + '</div>';
 
             if (type === "Chunk" && ctx) {
-              html += `<div style="margin-top:8px; font-weight:500; margin-bottom:4px;">Context</div>`;
-              html += `<div style="
-                  font-size:0.76rem;
-                  background:#020617;
-                  border-radius:8px;
-                  border:1px solid rgba(30,64,175,0.7);
-                  padding:6px 7px;
-                  white-space:pre-wrap;
-                  max-height:220px;
-                  overflow:auto;
-                ">
-                  ${escapeHtml(truncate(ctx, 1200))}
-                </div>`;
+              html += '<div style="margin-top:8px; font-weight:500; margin-bottom:4px;">Context</div>';
+              html += '<div style="font-size:0.76rem;background:#020617;border-radius:8px;border:1px solid rgba(30,64,175,0.7);padding:6px 7px;white-space:pre-wrap;max-height:220px;overflow:auto;">'
+                    + escapeHtml(truncate(ctx, 1200)) + '</div>';
             }
 
             if (docs.length) {
-              html += `<div style="margin-top:10px; font-weight:500; margin-bottom:4px;">Linked document(s)</div>`;
-              html += `<ul style="padding-left:16px; margin:0; font-size:0.76rem;">`;
+              html += '<div style="margin-top:10px; font-weight:500; margin-bottom:4px;">Linked document(s)</div>';
+              html += '<ul style="padding-left:16px; margin:0; font-size:0.76rem;">';
               docs.forEach(function (name) {
-                html += `<li style="margin-bottom:2px;">${escapeHtml(name)}</li>`;
+                html += '<li style="margin-bottom:2px;">' + escapeHtml(name) + '</li>';
               });
-              html += `</ul>`;
+              html += '</ul>';
             }
 
             setSidebarHtml(html);
           }
 
-          // ----- helpers: reset + focus -----
+          var currentFocusNodes = cy.collection();
+
           function resetFocus() {
             cy.elements().removeClass("selected");
             cy.elements().removeClass("highlighted");
             cy.nodes().style("opacity", 1);
             cy.edges().style("opacity", 0.8);
+            currentFocusNodes = cy.collection();
             if (infoEl) {
               infoEl.textContent = "Type a name and hit Enter, or click a date/entity node to see which documents it is linked to.";
             }
@@ -769,6 +737,8 @@
               resetFocus();
               return cy.collection();
             }
+
+            currentFocusNodes = focusNodes;
 
             var focus = cy.collection();
             focusNodes.forEach(function (n) {
@@ -791,7 +761,11 @@
             return focus;
           }
 
-          // ----- type filters -----
+          function extendFocus(addNodes) {
+            if (addNodes.empty()) return cy.collection();
+            return applyFocus(currentFocusNodes.union(addNodes));
+          }
+
           function applyTypeFilters() {
             var docsEl   = document.getElementById("filter-docs");
             var chunksEl = document.getElementById("filter-chunks");
@@ -823,14 +797,11 @@
 
           ["filter-docs", "filter-chunks", "filter-dates", "filter-entities"].forEach(function (id) {
             var el = document.getElementById(id);
-            if (el) {
-              el.addEventListener("change", applyTypeFilters);
-            }
+            if (el) el.addEventListener("change", applyTypeFilters);
           });
 
-          // ----- click behaviour -----
-          function showNodeContext(n) {
-            var focus = applyFocus(cy.collection(n));
+          function showNodeContext(n, extend) {
+            var focus = extend ? extendFocus(cy.collection(n)) : applyFocus(cy.collection(n));
             var neighborhood = n.closedNeighborhood();
             var docs = neighborhood.nodes('[type = "Document"]');
 
@@ -850,35 +821,55 @@
 
             renderSidebarForNode(n, uniqueDocs);
 
-            if (!focus.empty()) {
-              cy.fit(focus, 60);
-            }
+            if (!focus.empty()) cy.fit(focus, 60);
           }
 
           cy.on("tap", "node", function (evt) {
-            showNodeContext(evt.target);
+            var shift = evt.originalEvent && evt.originalEvent.shiftKey;
+            showNodeContext(evt.target, shift);
           });
 
-          // ----- search behaviour -----
+          // best-effort focus a chunk node by label substring match
+          function focusChunkNode(docName, chunkNum) {
+            var chunkStr = "ch " + chunkNum;
+            var candidates = cy.nodes().filter(function (n) {
+              var label = (n.data("label") || "").toLowerCase();
+              return label.includes(String(docName).toLowerCase()) && label.includes(chunkStr);
+            });
+            if (candidates.length > 0) showNodeContext(candidates[0]);
+          }
+
           function runSearch() {
             if (!searchInput) return;
-            var q = searchInput.value.trim().toLowerCase();
+
+            var qRaw = searchInput.value.trim();
+            var q = qRaw.toLowerCase();
 
             if (!q) {
               resetFocus();
               cy.layout(makeLayout()).run();
               cy.fit(cy.elements(), 60);
+              clearEvidence();
               return;
             }
 
+            runTermEvidenceSearch(qRaw);
+
+            var parts = q.split(/\s+/).filter(Boolean);
+
             var matches = cy.nodes().filter(function (n) {
-              var label = n.data("label");
-              return label && label.toLowerCase().includes(q);
+              var label = (n.data("label") || "").toLowerCase();
+              var ctx = (n.data("context") || "").toLowerCase();
+              var haystack = label + " " + ctx;
+              if (!haystack.trim()) return false;
+
+              if (parts.length === 1) return haystack.includes(parts[0]);
+              return parts.some(function (p) { return haystack.includes(p); });
             });
 
             if (matches.length === 0) {
               resetFocus();
-              if (infoEl) infoEl.textContent = 'No nodes match "' + q + '".';
+              if (infoEl) infoEl.textContent = 'No nodes match "' + qRaw + '".';
               return;
             }
 
@@ -889,16 +880,14 @@
               docs = docs.union(m.closedNeighborhood().nodes('[type = "Document"]'));
             });
 
-            if (!focus.empty()) {
-              cy.fit(focus, 60);
-            }
+            if (!focus.empty()) cy.fit(focus, 60);
 
             if (infoEl) {
               var docLabels = docs.map(function (d) { return d.data("label"); });
               var uniqueDocs = Array.from(new Set(docLabels));
-
               infoEl.textContent =
-                "Found " + matches.length + ' node(s) matching "' + q +
+                "Found " + matches.length +
+                ' node(s) matching "' + qRaw +
                 '". Linked document(s): ' +
                 (uniqueDocs.length ? uniqueDocs.join(", ") : "none");
             }
@@ -906,38 +895,60 @@
             renderSidebarForNode(matches[0], docs.map(function (d) { return d.data("label"); }));
           }
 
-          if (searchBtn) {
-            searchBtn.addEventListener("click", runSearch);
-          }
+          if (searchBtn) searchBtn.addEventListener("click", runSearch);
           if (searchInput) {
             searchInput.addEventListener("keydown", function (evt) {
-              if (evt.key === "Enter") {
-                runSearch();
-              }
+              if (evt.key === "Enter") runSearch();
             });
           }
+
           if (resetBtn) {
             resetBtn.addEventListener("click", function () {
               searchInput.value = "";
               resetFocus();
               cy.layout(makeLayout()).run();
               cy.fit(cy.elements(), 60);
+              clearEvidence();
             });
           }
 
-          // keyword chips: click -> fill search box + run (event delegation)
+          // keyword chips
           document.addEventListener("click", function (evt) {
             var btn = evt.target.closest(".kw-chip");
             if (!btn) return;
-
-            if (!searchInput) return;
-
             var kw = btn.getAttribute("data-kw") || "";
+            if (!searchInput) return;
             searchInput.value = kw;
+            runSearch();
+          });
 
-            // runSearch exists only after cy is created, so guard it
-            if (typeof runSearch === "function") {
-              runSearch();
+          // click evidence card -> show snippet in sidebar
+          document.addEventListener("click", function (evt) {
+            var focusBtn = evt.target.closest(".evidence-focus");
+            if (focusBtn) {
+              var d = focusBtn.getAttribute("data-doc") || "";
+              var c = parseInt(focusBtn.getAttribute("data-chunk") || "0", 10);
+              if (d && c) focusChunkNode(d, c);
+              evt.preventDefault();
+              return;
+            }
+
+            var item = evt.target.closest(".evidence-item");
+            if (!item) return;
+
+            var doc = item.getAttribute("data-doc") || "";
+            var chunk = item.getAttribute("data-chunk") || "";
+            var snippetEl = item.querySelector(".evidence-snippet");
+
+            if (sidebarEl) {
+              sidebarEl.innerHTML =
+                '<div style="font-size:0.82rem; font-weight:600; margin-bottom:6px;">Evidence</div>' +
+                '<div style="color:#9ca3af; font-size:0.75rem; margin-bottom:8px;">' +
+                  'Document: ' + escapeHtml(doc) + ' • chunk #' + escapeHtml(chunk) +
+                '</div>' +
+                '<div style="font-size:0.76rem; line-height:1.35; white-space:pre-wrap;">' +
+                  (snippetEl ? snippetEl.innerHTML : "") +
+                '</div>';
             }
           });
 
@@ -946,9 +957,7 @@
         })
         .catch(function (err) {
           console.error("Failed to load graph data", err);
-          if (infoEl) {
-            infoEl.textContent = "Could not load graph data.";
-          }
+          if (infoEl) infoEl.textContent = "Could not load graph data.";
         });
     });
   </script>

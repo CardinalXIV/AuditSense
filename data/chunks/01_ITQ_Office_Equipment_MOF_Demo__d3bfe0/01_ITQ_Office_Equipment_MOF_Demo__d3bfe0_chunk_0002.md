@@ -1,3 +1,0 @@
-## **1. Background**
-The Ministry of Finance (MOF) Corporate Services Division requires the supply and delivery of ergonomic office chairs and height-adjustable desks for staff located at the MOF Main Office at 100 Parliament Place, Singapore 179000.
-This Invitation to Quote (ITQ) seeks quotations from qualified suppliers to provide, deliver and install the required furniture in accordance with the specifications and requirements set out in this document and its Annexes.

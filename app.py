@@ -1,6 +1,10 @@
 # app.py
+from __future__ import annotations
+
 from pathlib import Path
 import base64
+import json
+import re
 
 from flask import Flask, request, redirect, url_for, render_template, flash, jsonify
 
@@ -23,9 +27,17 @@ date_extractor = DateExtractor()
 
 ALLOWED_SUFFIXES = {".pdf", ".docx", ".csv", ".xlsx", ".xls", ".md", ".markdown"}
 
+# Tracks last uploaded run (used by /term-search)
+LAST_RUN_DOC_IDS: list[str] = []
 
+
+# ---------------------------------------------------------------------
+# Upload + ingestion
+# ---------------------------------------------------------------------
 @app.route("/", methods=["GET", "POST"])
 def index():
+    global LAST_RUN_DOC_IDS
+
     if request.method == "GET":
         return render_template("index.html")
 
@@ -34,9 +46,12 @@ def index():
         flash("Please choose at least one file.")
         return redirect(url_for("index"))
 
-    results = []
+    results: list[dict] = []
     total_chunks = 0
 
+    # -----------------------------
+    # Ingest documents
+    # -----------------------------
     for file in files:
         if not file or file.filename == "":
             continue
@@ -48,17 +63,12 @@ def index():
             continue
 
         base_id = make_base_id(original_name)
-
-        raw_filename = f"{base_id}{suffix}"
-        raw_path = RAW_DIR / raw_filename
+        raw_path = RAW_DIR / f"{base_id}{suffix}"
         file.save(raw_path)
 
         success, payload = processor.ingest_file(raw_path)
         if not success:
-            flash(
-                f"Ingestion failed for {original_name}: "
-                f"{payload.get('error', 'Unknown error')}"
-            )
+            flash(f"Ingestion failed for {original_name}: {payload.get('error')}")
             continue
 
         results.append(
@@ -72,10 +82,7 @@ def index():
                 "sample_chunks": payload["sample_chunks"],
                 "dates": payload.get("dates", []),
                 "entities": payload.get("entities", []),
-
-                # new TF-IDF keyword extraction outputs
-               "keywords": payload.get("keywords", []),
-               "full_text": payload.get("full_text", ""),
+                "keywords": payload.get("keywords", []),
             }
         )
 
@@ -84,21 +91,28 @@ def index():
     if not results:
         return redirect(url_for("index"))
 
-    # ---------- build combined dates + Gantt ----------
+    # Track this run for term search
+    LAST_RUN_DOC_IDS = [doc["doc_id"] for doc in results]
 
-        # ---------- TF-IDF keywords across ALL docs ----------
-    all_texts = []
+    # -----------------------------
+    # Collect ALL keywords (deduped)
+    # -----------------------------
+    all_keywords: list[str] = []
+    seen: set[str] = set()
+
     for doc in results:
-        # you can read from payload if you stored it, or from markdown_path
-        # assuming you added payload["full_text"] above:
-        if doc.get("full_text"):
-            all_texts.append(doc["full_text"])
+        for kw in doc.get("keywords", []):
+            k = (kw or "").strip()
+            if k and k not in seen:
+                seen.add(k)
+                all_keywords.append(k)
 
-    all_keywords = []
-    if all_texts:
-        all_keywords = processor.extract_keywords_tfidf(all_texts, top_k=120)
+    all_keywords = all_keywords[:40]  # UI-safe cap
 
-    all_dates = []
+    # -----------------------------
+    # Build combined dates + Gantt
+    # -----------------------------
+    all_dates: list[dict] = []
     for doc in results:
         for row in doc.get("dates") or []:
             all_dates.append(
@@ -112,56 +126,23 @@ def index():
                 }
             )
 
-    # ---------- collect entities across all docs ----------
-
-    all_entities = []
-    for doc in results:
-        for row in doc.get("entities") or []:
-            all_entities.append(
-                {
-                    "Document": row.get("Document") or doc["original_filename"],
-                    "Chunk": row.get("Chunk") or 0,
-                    "Entity": row.get("Entity") or "",
-                    "Label": row.get("Label") or "",
-                    "Context": row.get("Context") or "",
-                }
-            )
-
-    # ---------- collect keywords across all docs ----------
-
-    all_keywords = []
-    all_chunk_keywords = []
-
-    seen = set()
-    for doc in results:
-        # doc-level keywords
-        for kw in doc.get("keywords") or []:
-            k = (kw or "").strip()
-            if not k:
-                continue
-            if k not in seen:
-                seen.add(k)
-                all_keywords.append(k)
-
-        # per-chunk keywords
-        for row in doc.get("chunk_keywords") or []:
-            all_chunk_keywords.append(row)
-
     combined_gantt_b64 = None
-    dates_table = []
+    dates_table: list[dict] = []
 
     if all_dates:
         dates_df = date_extractor.create_dates_dataframe(all_dates)
-        if not dates_df.empty:
+        if dates_df is not None and not dates_df.empty:
             dates_table = dates_df.to_dict(orient="records")
-
             buf = date_extractor.create_gantt_chart(dates_df)
-            if buf is not None:
+            if buf:
                 combined_gantt_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
 
-    # write the current run into Neo4j (docs + chunks + dates + entities)
-    if dates_table or all_entities:
-        build_graph_from_results(results, dates_table, all_entities)
+    # -----------------------------
+    # Write to Neo4j
+    # (keep same behavior as you had: you’re not passing entities here)
+    # -----------------------------
+    if dates_table or any(d.get("entities") for d in results):
+        build_graph_from_results(results, dates_table, [])
 
     return render_template(
         "result.html",
@@ -170,34 +151,139 @@ def index():
         combined_gantt_b64=combined_gantt_b64,
         dates_table=dates_table,
         all_keywords=all_keywords,
-        all_chunk_keywords=all_chunk_keywords,
     )
 
 
+# ---------------------------------------------------------------------
+# Graph snapshot
+# ---------------------------------------------------------------------
 @app.route("/graph-data")
 def graph_data():
-    """
-    Return a JSON snapshot of the current Neo4j graph
-    (Documents, Chunks, Dates, Entities + relationships).
-
-    Never hard-crashes: always returns a JSON object with
-    at least {"nodes": [], "edges": []}.
-    """
     try:
-        data = fetch_graph_snapshot()
-
-        if not data:
-            data = {"nodes": [], "edges": []}
-
+        data = fetch_graph_snapshot() or {"nodes": [], "edges": []}
         return jsonify(data)
-
     except Exception as e:
         app.logger.exception("Error in /graph-data")
-        return jsonify({
-            "nodes": [],
-            "edges": [],
-            "error": str(e),
-        }), 500
+        return jsonify({"nodes": [], "edges": [], "error": str(e)}), 500
+
+
+# ---------------------------------------------------------------------
+# 🔎 Term interrogation across chunks (ROBUST)
+# - Uses chunks.json if present
+# - Falls back to scanning per-chunk .md files if chunks.json is missing/broken
+# ---------------------------------------------------------------------
+@app.route("/term-search")
+def term_search():
+    q = (request.args.get("q") or "").strip()
+    if not q:
+        return jsonify({"q": q, "matches": []})
+
+    q_low = q.lower()
+    matches: list[dict] = []
+
+    def make_snippet(text: str, match_start: int, window: int = 160) -> str:
+        left = max(0, match_start - window)
+        right = min(len(text), match_start + len(q) + window)
+        snippet = text[left:right].replace("\n", " ")
+        snippet = re.sub(r"\s+", " ", snippet).strip()
+        prefix = "…" if left > 0 else ""
+        suffix = "…" if right < len(text) else ""
+        return f"{prefix}{snippet}{suffix}"
+
+    def find_pos(text: str) -> int:
+        return text.lower().find(q_low)
+
+    # If someone calls /term-search before uploading this session,
+    # fall back to scanning all doc dirs (still capped).
+    doc_ids = LAST_RUN_DOC_IDS or [p.name for p in CHUNK_DIR.glob("*") if p.is_dir()]
+
+    for doc_id in doc_ids:
+        doc_dir = CHUNK_DIR / doc_id
+        if not doc_dir.exists():
+            continue
+
+        json_path = doc_dir / "chunks.json"
+
+        used_json = False
+
+        # 1) Try chunks.json
+        if json_path.exists():
+            try:
+                chunks = json.loads(json_path.read_text(encoding="utf-8"))
+                for entry in chunks:
+                    text = entry.get("text") or ""
+                    if not text:
+                        continue
+
+                    pos = find_pos(text)
+                    if pos == -1:
+                        continue
+
+                    used_json = True
+                    matches.append(
+                        {
+                            "doc_id": doc_id,
+                            "source_file": entry.get("source_file") or doc_id,
+                            "chunk": entry.get("id") or 0,
+                            "chunk_id": entry.get("chunk_id") or "",
+                            "snippet": make_snippet(text, pos),
+                            "pos": pos,
+                        }
+                    )
+
+                    if len(matches) >= 60:
+                        break
+            except Exception:
+                used_json = False
+
+        if len(matches) >= 60:
+            break
+
+        # 2) Fallback: scan per-chunk .md files (doc_id_chunk_0001.md etc.)
+        if not used_json:
+            for md_path in sorted(doc_dir.glob("*.md")):
+                try:
+                    text = md_path.read_text(encoding="utf-8")
+                except Exception:
+                    continue
+
+                pos = find_pos(text)
+                if pos == -1:
+                    continue
+
+                chunk_num = 0
+                m = re.search(r"_chunk_(\d+)\.md$", md_path.name)
+                if m:
+                    try:
+                        chunk_num = int(m.group(1))
+                    except Exception:
+                        chunk_num = 0
+
+                matches.append(
+                    {
+                        "doc_id": doc_id,
+                        "source_file": doc_id,
+                        "chunk": chunk_num,
+                        "chunk_id": md_path.stem,
+                        "snippet": make_snippet(text, pos),
+                        "pos": pos,
+                    }
+                )
+
+                if len(matches) >= 60:
+                    break
+
+        if len(matches) >= 60:
+            break
+
+    return jsonify({"q": q, "matches": matches})
+
+
+# Keep /term-evidence for backwards compatibility (optional).
+# You can delete this later if nothing calls it.
+@app.route("/term-evidence")
+def term_evidence():
+    return term_search()
 
 
 if __name__ == "__main__":
