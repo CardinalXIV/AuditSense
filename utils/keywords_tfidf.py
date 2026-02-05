@@ -4,15 +4,26 @@ from __future__ import annotations
 import re
 from typing import List, Tuple
 
-import spacy
 from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+
+try:
+    import spacy
+except ModuleNotFoundError:
+    spacy = None
 
 
 # ---------------------------------------------------------------------
 # spaCy setup (loaded once, lightweight)
 # ---------------------------------------------------------------------
 # We only need tokenization + POS + lemmatization
-_nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+if spacy is None:
+    _nlp = None
+else:
+    try:
+        _nlp = spacy.load("en_core_web_sm", disable=["ner", "parser"])
+    except OSError:
+        # Fallback keeps the app usable if the model was not downloaded yet.
+        _nlp = spacy.blank("en")
 
 
 # ---------------------------------------------------------------------
@@ -52,18 +63,29 @@ def spacy_clean_for_tfidf(text: str) -> str:
     if not text:
         return ""
 
+    text = re.sub(r"\s+", " ", text)
+    if _nlp is None:
+        fallback_tokens = re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{2,}", text.lower())
+        cleaned = [
+            tok
+            for tok in fallback_tokens
+            if tok not in ALL_STOPWORDS and "." not in tok and "/" not in tok
+        ]
+        return " ".join(cleaned)
+
     doc = _nlp(text)
     kept: List[str] = []
 
     for tok in doc:
         if tok.is_stop or tok.is_punct or tok.is_space or tok.like_num:
             continue
-        if tok.pos_ not in {"NOUN", "PROPN"}:
+        # blank('en') has no POS; only enforce POS filtering when it exists.
+        if tok.pos_ and tok.pos_ not in {"NOUN", "PROPN"}:
             continue
         if tok.like_url or tok.like_email:
             continue
 
-        lemma = tok.lemma_.lower().strip()
+        lemma = (tok.lemma_ or tok.text).lower().strip()
 
         if "." in lemma or "/" in lemma:   # kills com/fwlink, microsoft.com, paths, etc.
             continue
@@ -136,7 +158,10 @@ def extract_taxonomy_keywords(
         return []
 
     vec = make_vectorizer_for_corpus(len(texts))
-    X = vec.fit_transform(texts)
+    try:
+        X = vec.fit_transform(texts)
+    except ValueError:
+        return []
 
     if X.shape[1] == 0:
         return []

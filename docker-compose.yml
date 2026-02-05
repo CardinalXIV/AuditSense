@@ -1,0 +1,55 @@
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+    image: auditsense:local
+    container_name: auditsense-app
+    ports:
+      - "${AUDITSENSE_PORT:-5000}:5000"
+    environment:
+      AUDITSENSE_SECRET_KEY: ${AUDITSENSE_SECRET_KEY:-change-me}
+      GRAPH_ENABLED: ${GRAPH_ENABLED:-false}
+      NEO4J_URI: ${NEO4J_URI:-neo4j://neo4j:7687}
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+      MAX_CONTENT_LENGTH_MB: ${MAX_CONTENT_LENGTH_MB:-50}
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: 5000
+      FLASK_DEBUG: "false"
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.26
+    container_name: auditsense-neo4j
+    profiles: ["graph"]
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-password}
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:7474 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+
+  app-test:
+    build:
+      context: .
+      target: test
+    image: auditsense:test
+    profiles: ["test"]
+    environment:
+      GRAPH_ENABLED: "false"
+    command: ["pytest", "-q"]
+
+volumes:
+  neo4j_data:
+  neo4j_logs:

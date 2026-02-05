@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}AuditSense | Results{% endblock %}
+{% block title %}AuditSense | Analysis{% endblock %}
 {% block body_class %}result-page{% endblock %}
 
 {% block content %}
@@ -8,16 +8,15 @@
   <div class="result-head">
     <a href="{{ url_for('index') }}" class="back-link">← New run</a>
     <div class="headline-wrap">
-      <h1>Analysis complete</h1>
+      <h1>Analysis overview</h1>
       <p>
         Processed {{ results|length }} document{{ '' if results|length == 1 else 's' }}
         into {{ total_chunks }} chunk{{ '' if total_chunks == 1 else 's' }}.
       </p>
     </div>
-    <div class="badge-row">
-      <span class="chip chip-accent">Timeline ready</span>
-      <span class="chip">Evidence indexed</span>
-      <span class="chip">Graph synchronized</span>
+    <div class="result-nav">
+      <a class="result-nav-link is-active" href="{{ url_for('results_analysis') }}">Analysis</a>
+      <a class="result-nav-link" href="{{ url_for('results_graph') }}">Graph workspace</a>
     </div>
   </div>
 
@@ -76,6 +75,9 @@
               <h3 title="{{ doc.original_filename }}">{{ doc.original_filename }}</h3>
               <span>{{ doc.num_chunks }} chunk{{ '' if doc.num_chunks == 1 else 's' }}</span>
             </div>
+            <div class="doc-tag-row">
+              <span class="doc-kind-tag">{{ doc.source_kind|replace('_', ' ')|title }}</span>
+            </div>
 
             {% if doc.sample_chunks %}
               {% for chunk in doc.sample_chunks %}
@@ -89,67 +91,5 @@
       </div>
     </section>
   </div>
-
-  <section class="panel graph-panel">
-    <div class="panel-head">
-      <h2>Knowledge graph workspace</h2>
-      <p>Search entities, dates, and linked source evidence.</p>
-    </div>
-
-    {% if not graph_enabled %}
-      <div class="flash-message">Neo4j is disabled or missing credentials. Graph interactions are unavailable.</div>
-    {% endif %}
-
-    {% if all_keywords and all_keywords|length > 0 %}
-      <div class="keyword-wrap">
-        <span class="keyword-label">Keyword shortcuts</span>
-        <div class="keyword-list">
-          {% for kw in all_keywords[:24] %}
-            <button type="button" class="kw-chip" data-kw="{{ kw }}">{{ kw }}</button>
-          {% endfor %}
-          {% if all_keywords|length > 24 %}
-            <span class="keyword-more">+{{ all_keywords|length - 24 }} more</span>
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
-
-    <div class="graph-toolbar">
-      <div class="search-group">
-        <input id="graph-search" type="text" placeholder="Search graph nodes or chunk context">
-        <button id="graph-search-btn" type="button" class="btn-secondary">Search</button>
-        <button id="graph-reset-btn" type="button" class="btn-ghost">Reset</button>
-      </div>
-      <div class="filter-group">
-        <label><input id="filter-docs" type="checkbox" checked> Documents</label>
-        <label><input id="filter-chunks" type="checkbox"> Chunks</label>
-        <label><input id="filter-dates" type="checkbox" checked> Dates</label>
-        <label><input id="filter-entities" type="checkbox" checked> Entities</label>
-      </div>
-    </div>
-
-    <div class="evidence-wrap">
-      <div class="evidence-header">
-        <h3>Term evidence</h3>
-        <p id="term-evidence-meta">Run a search to inspect chunk-level evidence.</p>
-      </div>
-      <div class="evidence-list" id="term-evidence-list"></div>
-    </div>
-
-    <div class="graph-stage">
-      <div id="graph-container" class="graph-canvas"></div>
-      <aside id="graph-sidebar" class="graph-sidebar">
-        <p class="muted-copy">Select a graph node to inspect context and linked documents.</p>
-      </aside>
-    </div>
-    <p id="graph-info" class="graph-info">
-      Type a term and press Enter to highlight related nodes.
-    </p>
-  </section>
 </section>
-{% endblock %}
-
-{% block scripts %}
-  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
-  <script src="{{ url_for('static', filename='js/result.js') }}"></script>
 {% endblock %}

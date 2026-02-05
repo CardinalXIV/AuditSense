@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}AuditSense | Graph Workspace{% endblock %}
+{% block body_class %}result-page{% endblock %}
+
+{% block content %}
+<section class="result-shell reveal">
+  <div class="result-head">
+    <a href="{{ url_for('index') }}" class="back-link">← New run</a>
+    <div class="headline-wrap">
+      <h1>Graph workspace</h1>
+      <p>
+        Explore links between documents, chunks, dates, and extracted entities
+        (including locations, contact details, and address-like mentions).
+      </p>
+    </div>
+    <div class="result-nav">
+      <a class="result-nav-link" href="{{ url_for('results_analysis') }}">Analysis</a>
+      <a class="result-nav-link is-active" href="{{ url_for('results_graph') }}">Graph workspace</a>
+    </div>
+  </div>
+
+  <section class="panel graph-panel">
+    <div class="panel-head">
+      <h2>Knowledge graph workspace</h2>
+      <p>Search entities, dates, and linked source evidence.</p>
+    </div>
+
+    {% if not graph_enabled %}
+      <div class="flash-message">Neo4j is disabled or missing credentials. Graph interactions are unavailable.</div>
+    {% endif %}
+
+    {% if all_keywords and all_keywords|length > 0 %}
+      <div class="keyword-wrap">
+        <span class="keyword-label">Keyword shortcuts</span>
+        <div class="keyword-list">
+          {% for kw in all_keywords[:24] %}
+            <button type="button" class="kw-chip" data-kw="{{ kw }}">{{ kw }}</button>
+          {% endfor %}
+          {% if all_keywords|length > 24 %}
+            <span class="keyword-more">+{{ all_keywords|length - 24 }} more</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="graph-toolbar">
+      <div class="search-group">
+        <input id="graph-search" type="text" placeholder="Search graph nodes or chunk context">
+        <button id="graph-search-btn" type="button" class="btn-secondary">Search</button>
+        <button id="graph-reset-btn" type="button" class="btn-ghost">Reset</button>
+        <button id="graph-expand-btn" type="button" class="btn-ghost">Expand graph</button>
+      </div>
+      <div class="layout-group">
+        <label for="layout-spacing">Layout spacing</label>
+        <input id="layout-spacing" type="range" min="1.0" max="3.0" step="0.1" value="1.8">
+        <span id="layout-spacing-value">1.8x</span>
+        <button id="layout-apply-btn" type="button" class="btn-ghost">Re-layout</button>
+        <label class="layout-check">
+          <input id="ignore-dimmed-clicks" type="checkbox" checked>
+          Ignore dimmed nodes while focused
+        </label>
+      </div>
+      <div class="doc-focus-group">
+        <label for="doc-focus-select">Document focus</label>
+        <select id="doc-focus-select">
+          <option value="">Select a document...</option>
+        </select>
+        <button id="doc-focus-btn" type="button" class="btn-secondary">Highlight doc</button>
+      </div>
+      <div class="filter-group">
+        <label><input id="filter-docs" type="checkbox" checked> Documents</label>
+        <label><input id="filter-chunks" type="checkbox" checked> Chunks</label>
+        <label><input id="filter-dates" type="checkbox" checked> Dates</label>
+        <label><input id="filter-entities" type="checkbox" checked> Entities</label>
+      </div>
+    </div>
+    <p class="muted-copy">Labels use high-contrast mode for readability.</p>
+
+    <div class="evidence-wrap">
+      <div class="evidence-header">
+        <h3>Term evidence</h3>
+        <p id="term-evidence-meta">Run a search to inspect chunk-level evidence.</p>
+      </div>
+      <div class="evidence-list" id="term-evidence-list"></div>
+    </div>
+
+    <div class="graph-stage">
+      <div id="graph-container" class="graph-canvas"></div>
+      <aside id="graph-sidebar" class="graph-sidebar">
+        <p class="muted-copy">Select a graph node to inspect context and linked documents.</p>
+      </aside>
+    </div>
+    <p id="graph-info" class="graph-info">
+      Type a term and press Enter to highlight related nodes.
+    </p>
+  </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+  <script src="{{ url_for('static', filename='js/result.js') }}"></script>
+{% endblock %}

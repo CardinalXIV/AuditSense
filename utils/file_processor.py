@@ -1,29 +1,31 @@
-# utils/file_processor.py
 from __future__ import annotations
 
 import base64
+import json
+import logging
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
-from chunknorris.parsers import (
-    PdfParser,
-    DocxParser,
-    MarkdownParser,
-    CSVParser,
-    ExcelParser,
-)
-from chunknorris.chunkers import MarkdownChunker
-from chunknorris.pipelines import BasePipeline
+try:
+    from chunknorris.chunkers import MarkdownChunker
+    from chunknorris.parsers import CSVParser, DocxParser, ExcelParser, MarkdownParser, PdfParser
+    from chunknorris.pipelines import BasePipeline
+    CHUNKNORRIS_AVAILABLE = True
+except ModuleNotFoundError:
+    MarkdownChunker = None
+    CSVParser = DocxParser = ExcelParser = MarkdownParser = PdfParser = None
+    BasePipeline = Any
+    CHUNKNORRIS_AVAILABLE = False
 
 from utils.date_extract import DateExtractor
-from utils.ner import extract_entities
 from utils.keywords_tfidf import extract_taxonomy_keywords
+from utils.ner import extract_entities
+
+logger = logging.getLogger(__name__)
 
 
 class FileProcessor:
-    """
-    Chunk + extract dates, entities, and taxonomy-style keywords.
-    """
+    """Ingest files into markdown/chunks and extract dates, entities, and keywords."""
 
     SUPPORTED_SUFFIXES = {".pdf", ".docx", ".csv", ".xlsx", ".xls", ".md", ".markdown"}
 
@@ -33,23 +35,27 @@ class FileProcessor:
         self.chunk_dir = chunk_dir
         self.date_extractor = DateExtractor()
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-    def ingest_file(self, raw_path: Path) -> Tuple[bool, Dict]:
+    def ingest_file(self, raw_path: Path) -> Tuple[bool, Dict[str, Any]]:
+        if not CHUNKNORRIS_AVAILABLE:
+            return False, {"error": "Missing dependency: chunknorris is not installed."}
+
         raw_path = raw_path.resolve()
         if not raw_path.exists():
             return False, {"error": f"File not found: {raw_path}"}
 
         try:
             pipeline = self._build_pipeline_for_path(raw_path)
-        except ValueError as e:
-            return False, {"error": str(e)}
+        except ValueError as exc:
+            return False, {"error": str(exc)}
 
         try:
             chunks = pipeline.chunk_file(str(raw_path))
-        except Exception as e:
-            return False, {"error": f"Chunking failed: {e}"}
+        except Exception as exc:
+            logger.exception("Chunking failed for %s", raw_path)
+            return False, {"error": f"Chunking failed: {exc}"}
+
+        if not chunks:
+            return False, {"error": "No chunks generated from file."}
 
         doc_stem = raw_path.stem
         doc_chunk_dir = self.chunk_dir / doc_stem
@@ -58,68 +64,71 @@ class FileProcessor:
 
         combined_md_parts: List[str] = []
         sample_chunks: List[str] = []
-        entities_rows: List[Dict] = []
+        entities_rows: List[Dict[str, Any]] = []
+        chunk_records: List[Dict[str, Any]] = []
 
-        # -----------------------------
-        # Chunk processing + NER
-        # -----------------------------
-        for idx, ch in enumerate(chunks, start=1):
-            text = getattr(ch, "get_text", lambda: str(ch))()
+        for idx, chunk in enumerate(chunks, start=1):
+            text = self._chunk_to_text(chunk)
             combined_md_parts.append(text)
 
-            # Save chunk markdown
-            chunk_path = doc_chunk_dir / f"{doc_stem}_chunk_{idx:04d}.md"
-            chunk_path.write_text(text, encoding="utf-8")
+            chunk_file = doc_chunk_dir / f"{doc_stem}_chunk_{idx:04d}.md"
+            chunk_file.write_text(text, encoding="utf-8")
 
-            # NER (safe)
+            chunk_id = f"{doc_stem}#{idx}"
+            chunk_records.append(
+                {
+                    "id": idx,
+                    "chunk_id": chunk_id,
+                    "source_file": raw_path.name,
+                    "document_chunk_id": idx,
+                    "text": text,
+                }
+            )
+
             try:
-                ents = extract_entities(text)
+                entities = extract_entities(text)
             except Exception:
-                ents = []
+                logger.exception("Entity extraction failed for %s chunk %s", raw_path.name, idx)
+                entities = []
 
-            for ent in ents:
+            for entity in entities:
                 entities_rows.append(
                     {
                         "Document": raw_path.name,
                         "Chunk": idx,
-                        "Entity": ent.get("text", ""),
-                        "Label": ent.get("label", ""),
+                        "Entity": entity.get("text", ""),
+                        "Label": entity.get("label", ""),
                         "Context": text[:400],
                     }
                 )
 
-            # Preview
             if idx <= 3:
                 preview = text[:1000] + ("\n...[truncated]" if len(text) > 1000 else "")
                 sample_chunks.append(preview)
 
-        # -----------------------------
-        # Combined markdown
-        # -----------------------------
         combined_markdown = "\n\n---\n\n".join(combined_md_parts)
         md_path = self.markdown_dir / f"{doc_stem}.md"
         md_path.write_text(combined_markdown, encoding="utf-8")
 
-        # -----------------------------
-        # TAXONOMY KEYWORDS (spaCy + TF-IDF)
-        # -----------------------------
-        doc_keywords = extract_taxonomy_keywords(
-            texts=[combined_markdown],
-            top_k=25,
+        chunks_json_path = doc_chunk_dir / "chunks.json"
+        chunks_json_path.write_text(
+            json.dumps(chunk_records, ensure_ascii=False, indent=2),
+            encoding="utf-8",
         )
 
-        # -----------------------------
-        # Dates + Gantt
-        # -----------------------------
-        dates_rows, gantt_b64 = self._extract_dates_and_gantt(
-            raw_path.name,
-            combined_markdown,
-        )
+        try:
+            doc_keywords = extract_taxonomy_keywords(texts=[combined_markdown], top_k=25)
+        except Exception:
+            logger.exception("Keyword extraction failed for %s", raw_path.name)
+            doc_keywords = []
 
-        payload: Dict = {
+        dates_rows, gantt_b64 = self._extract_dates_and_gantt(chunk_records)
+
+        payload: Dict[str, Any] = {
             "doc_stem": doc_stem,
             "markdown_path": str(md_path),
             "chunks_dir": str(doc_chunk_dir),
+            "chunks_json_path": str(chunks_json_path),
             "num_chunks": len(chunks),
             "sample_chunks": sample_chunks,
             "dates": dates_rows,
@@ -128,12 +137,17 @@ class FileProcessor:
             "full_text": combined_markdown,
             "gantt_img_b64": gantt_b64,
         }
-
         return True, payload
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
+    def _chunk_to_text(self, chunk: Any) -> str:
+        getter = getattr(chunk, "get_text", None)
+        if callable(getter):
+            value = getter()
+            if isinstance(value, str):
+                return value
+            return str(value)
+        return str(chunk)
+
     def _get_parser_for_path(self, path: Path):
         ext = path.suffix.lower()
         if ext == ".pdf":
@@ -149,36 +163,17 @@ class FileProcessor:
         raise ValueError(f"Unsupported file extension: {ext}")
 
     def _build_pipeline_for_path(self, path: Path) -> BasePipeline:
-        return BasePipeline(
-            parser=self._get_parser_for_path(path),
-            chunker=MarkdownChunker(),
-        )
+        return BasePipeline(parser=self._get_parser_for_path(path), chunker=MarkdownChunker())
 
     def _extract_dates_and_gantt(
         self,
-        source_filename: str,
-        full_text: str,
-    ) -> Tuple[List[Dict], str | None]:
-
-        raw_dates = self.date_extractor.extract_dates_from_text(full_text)
+        chunk_records: List[Dict[str, Any]],
+    ) -> Tuple[List[Dict[str, Any]], str | None]:
+        raw_dates = self.date_extractor.extract_from_chunks_list(chunk_records)
         if not raw_dates:
             return [], None
 
-        rows = []
-        for idx, d in enumerate(raw_dates, start=1):
-            rows.append(
-                {
-                    "source_file": source_filename,
-                    "chunk_number": idx,
-                    "date_text": d["original_text"],
-                    "parsed_date": d["parsed_date"],
-                    "formatted_date": d["formatted"],
-                    "context": d["context"],
-                    "method": d.get("method", "unknown"),
-                }
-            )
-
-        df = self.date_extractor.create_dates_dataframe(rows)
+        df = self.date_extractor.create_dates_dataframe(raw_dates)
         if df is None or df.empty:
             return [], None
 
@@ -186,4 +181,7 @@ class FileProcessor:
         if not buf:
             return df.to_dict(orient="records"), None
 
-        return df.to_dict(orient="records"), base64.b64encode(buf.getvalue()).decode("ascii")
+        return (
+            df.to_dict(orient="records"),
+            base64.b64encode(buf.getvalue()).decode("ascii"),
+        )

@@ -3,11 +3,21 @@
 from __future__ import annotations
 from typing import List, Dict, Set, Tuple
 import re
-import spacy
 
-_nlp = spacy.load("en_core_web_sm")
+try:
+    import spacy
+except ModuleNotFoundError:
+    spacy = None
 
-CORE_ENTITY_LABELS = {"PERSON", "ORG"}
+if spacy is None:
+    _nlp = None
+else:
+    try:
+        _nlp = spacy.load("en_core_web_sm")
+    except OSError:
+        _nlp = spacy.blank("en")
+
+CORE_ENTITY_LABELS = {"PERSON", "ORG", "GPE", "LOC", "FAC"}
 
 BAD_CHARS = set('*"\'{}[]()<>:\\/|#@!~`+=')
 
@@ -64,6 +74,15 @@ ORG_KEYWORDS: Set[str] = {
 # vendor-style pattern: Something ... Pte Ltd / Pte. Ltd.
 VENDOR_PATTERN = re.compile(
     r"\b([A-Z][A-Za-z0-9& ,./\-]+?\s+(?:Pte\.?|PTE\.?)\s+Ltd\.?)\b"
+)
+EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+PHONE_PATTERN = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?(?:\(?\d{2,4}\)?[\s-]?)?\d{3,4}[\s-]?\d{3,4}\b")
+URL_PATTERN = re.compile(r"\b(?:https?://|www\.)[A-Za-z0-9./?=_-]+\b", re.IGNORECASE)
+ADDRESS_PATTERN = re.compile(
+    r"\b\d{1,5}\s+[A-Za-z0-9.,' -]+?"
+    r"(?:Street|St|Road|Rd|Avenue|Ave|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Court|Ct|Place|Pl|Terrace|Ter|Highway|Hwy)\b"
+    r"(?:,\s*[A-Za-z .'-]+){0,2}",
+    re.IGNORECASE,
 )
 
 
@@ -142,45 +161,46 @@ def extract_entities(text: str) -> List[Dict[str, str]]:
     if not text:
         return []
 
-    doc = _nlp(text)
     entities_set: Set[Tuple[str, str]] = set()
     entities: List[Dict[str, str]] = []
 
     # 1) spaCy-based entities
-    for ent in doc.ents:
-        if ent.label_ not in CORE_ENTITY_LABELS:
-            continue
-
-        raw = ent.text
-        cleaned = clean_entity_text(raw)
-
-        if not cleaned:
-            continue
-
-        if contains_bad_chars(cleaned):
-            continue
-
-        label = ent.label_
-
-        if label == "PERSON":
-            if not _looks_like_person(cleaned):
+    if _nlp is not None:
+        doc = _nlp(text)
+        for ent in doc.ents:
+            if ent.label_ not in CORE_ENTITY_LABELS:
                 continue
 
-        if label == "ORG":
-            if not _looks_like_org(cleaned):
+            raw = ent.text
+            cleaned = clean_entity_text(raw)
+
+            if not cleaned:
                 continue
 
-        key = (cleaned, label)
-        if key in entities_set:
-            continue
+            if contains_bad_chars(cleaned):
+                continue
 
-        entities_set.add(key)
-        entities.append(
-            {
-                "text": cleaned,
-                "label": label,
-            }
-        )
+            label = ent.label_
+
+            if label == "PERSON":
+                if not _looks_like_person(cleaned):
+                    continue
+
+            if label == "ORG":
+                if not _looks_like_org(cleaned):
+                    continue
+
+            key = (cleaned, label)
+            if key in entities_set:
+                continue
+
+            entities_set.add(key)
+            entities.append(
+                {
+                    "text": cleaned,
+                    "label": label,
+                }
+            )
 
     # 2) Regex fallback for vendor-style names (Pte Ltd)
     for match in VENDOR_PATTERN.finditer(text):
@@ -197,5 +217,30 @@ def extract_entities(text: str) -> List[Dict[str, str]]:
                 "label": "ORG",
             }
         )
+
+    # 3) Regex entities for contact/address intelligence.
+    regex_entities = [
+        (EMAIL_PATTERN, "EMAIL"),
+        (PHONE_PATTERN, "PHONE"),
+        (URL_PATTERN, "URL"),
+        (ADDRESS_PATTERN, "ADDRESS"),
+    ]
+    for pattern, label in regex_entities:
+        for match in pattern.finditer(text):
+            value = clean_entity_text(match.group(0))
+            if len(value) < 4:
+                continue
+            if label == "PHONE" and len(re.sub(r"\D", "", value)) < 7:
+                continue
+            key = (value, label)
+            if key in entities_set:
+                continue
+            entities_set.add(key)
+            entities.append(
+                {
+                    "text": value,
+                    "label": label,
+                }
+            )
 
     return entities
